@@ -30,5 +30,25 @@ Docker:
 
 ```bash
 docker build -t salary-gateway .
-docker run -p 8000:8000 salary-gateway
+docker run --rm -p 8000:8000 -v "${PWD}:/app" -w /app salary-gateway
+```
+
+Docker workflow (Docker-only):
+
+```bash
+docker build -t salary-gateway .
+# Generate 200 employee records in employees.csv
+docker run --rm -v "${PWD}:/app" -w /app python:3.11-slim python scripts/generate_employees.py
+# Import into SQLite database employees.db
+docker run --rm -v "${PWD}:/app" -w /app python:3.11-slim python scripts/import_employees.py employees.csv
+# Start the FastAPI app in Docker
+docker run --rm -p 8000:8000 -v "${PWD}:/app" -w /app salary-gateway
+```
+
+You can then open `http://localhost:8000/docs` to interact with the API.
+
+Docker Compose:
+
+```bash
+docker compose up --build
 ```

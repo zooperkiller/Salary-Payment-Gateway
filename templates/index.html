@@ -3,80 +3,416 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payroll Admin Dashboard</title>
+    <title>Payroll Admin Dashboard — Salary Payment Gateway</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 16px; background: #f7f9fc; color: #1f2937; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        header { margin-bottom: 24px; }
-        h1 { margin-bottom: 8px; }
-        form { margin-bottom: 24px; display: flex; gap: 8px; flex-wrap: wrap; }
-        input[type=text] { width: 260px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; }
-        button { padding: 10px 16px; border: none; border-radius: 6px; background: #2563eb; color: white; cursor: pointer; }
-        button:hover { background: #1d4ed8; }
-        .alert { background: #fef3c7; border: 1px solid #fcd34d; padding: 12px; border-radius: 8px; margin-bottom: 24px; }
-        .card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin-bottom: 24px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-        th { background: #f1f5f9; }
-        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
-        .summary-item { background: #eef2ff; padding: 12px; border-radius: 8px; }
-        .subtitle { color: #475569; margin-top: 0; }
-        .small-text { color: #64748b; font-size: 0.95rem; }
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --primary: #6366f1;
+            --primary-light: #e0e7ff;
+            --accent: #f59e0b;
+            --accent-light: #fef3c7;
+            --success: #10b981;
+            --success-light: #d1fae5;
+            --danger: #ef4444;
+            --danger-light: #fee2e2;
+            --info: #0ea5e9;
+            --info-light: #e0f2fe;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 14px;
+            --radius-sm: 8px;
+            --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -2px rgba(0,0,0,.05);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ── NAV ────────────────────────────── */
+        .navbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: var(--primary);
+        }
+        .navbar-brand .icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--primary), #8b5cf6);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 1.2rem;
+        }
+        .navbar-stats { display: flex; gap: 28px; }
+        .navbar-stat { text-align: right; }
+        .navbar-stat .val { font-weight: 700; font-size: 1.05rem; color: var(--text); }
+        .navbar-stat .lbl { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* ── LAYOUT ─────────────────────────── */
+        .container { max-width: 1320px; margin: 0 auto; padding: 24px 20px; }
+
+        /* ── METRIC CARDS ──────────────────── */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .metric-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: transform .15s, box-shadow .15s;
+        }
+        .metric-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+        .metric-icon {
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+        }
+        .metric-icon.purple { background: var(--primary-light); color: var(--primary); }
+        .metric-icon.amber  { background: var(--accent-light); color: var(--accent); }
+        .metric-icon.green  { background: var(--success-light); color: var(--success); }
+        .metric-icon.blue   { background: var(--info-light); color: var(--info); }
+        .metric-icon.red    { background: var(--danger-light); color: var(--danger); }
+        .metric-body .metric-value { font-size: 1.55rem; font-weight: 700; }
+        .metric-body .metric-label { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+
+        /* ── CHARTS ─────────────────────────── */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+        .chart-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        .chart-card h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .chart-card h3 .dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            display: inline-block;
+        }
+        .chart-wrap { position: relative; width: 100%; max-height: 320px; }
+        .chart-wrap canvas { width: 100% !important; }
+
+        /* ── SEARCH / TOOLBAR ──────────────── */
+        .toolbar {
+            display: flex; gap: 10px; flex-wrap: wrap;
+            margin-bottom: 20px; align-items: center;
+        }
+        .toolbar input, .toolbar select {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.88rem;
+            background: var(--surface);
+            color: var(--text);
+            outline: none;
+            transition: border-color .15s;
+            min-width: 180px;
+        }
+        .toolbar input:focus, .toolbar select:focus { border-color: var(--primary); }
+        .toolbar input { flex: 1; min-width: 260px; }
+        .toolbar select { cursor: pointer; }
+
+        .btn {
+            padding: 10px 18px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: #4f46e5; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-outline:hover { background: var(--bg); }
+        .btn-sm { padding: 6px 12px; font-size: 0.78rem; }
+        .btn-xs { padding: 4px 8px; font-size: 0.7rem; border-radius: 6px; }
+
+        /* ── TABLE ──────────────────────────── */
+        .table-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .table-header {
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 10px;
+        }
+        .table-header h3 { font-size: 1rem; font-weight: 600; }
+
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th {
+            text-align: left; padding: 12px 16px;
+            font-size: 0.75rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--text-muted); background: var(--bg);
+            border-bottom: 2px solid var(--border);
+            cursor: pointer; user-select: none; white-space: nowrap;
+        }
+        th:hover { color: var(--primary); }
+        th .sort-icon { margin-left: 4px; opacity: 0.4; }
+        th.sorted .sort-icon { opacity: 1; }
+        td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+        tr:hover td { background: #fafbff; }
+        .badge {
+            display: inline-block; padding: 3px 10px; border-radius: 20px;
+            font-size: 0.72rem; font-weight: 600;
+        }
+        .badge-purple { background: var(--primary-light); color: var(--primary); }
+        .badge-amber  { background: var(--accent-light); color: #b45309; }
+        .badge-green  { background: var(--success-light); color: #065f46; }
+        .badge-blue   { background: var(--info-light); color: #0369a1; }
+        .badge-red    { background: var(--danger-light); color: #b91c1c; }
+        .badge-gray   { background: #f1f5f9; color: #475569; }
+
+        .payable-positive { color: var(--success); font-weight: 700; }
+        .payable-warning  { color: var(--accent); font-weight: 700; }
+
+        /* ── PAGINATION ─────────────────────── */
+        .pagination {
+            display: flex; align-items: center; justify-content: center;
+            gap: 6px; padding: 16px; flex-wrap: wrap;
+        }
+        .pagination button {
+            min-width: 36px; height: 36px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            color: var(--text);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all .12s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .pagination button:hover:not(:disabled) { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+        .pagination button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .pagination .page-info { padding: 0 12px; font-size: 0.85rem; color: var(--text-muted); }
+
+        /* ── EMPLOYEE DETAIL MODAL ─────────── */
+        .modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,.55);
+            z-index: 200;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 28px;
+            max-width: 620px; width: 94%;
+            max-height: 85vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,.2);
+            position: relative;
+            animation: modalIn .2s ease;
+        }
+        @keyframes modalIn { from { opacity: 0; transform: scale(.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .modal-close {
+            position: absolute; top: 12px; right: 16px;
+            background: none; border: none; font-size: 1.5rem;
+            cursor: pointer; color: var(--text-muted);
+        }
+        .modal-close:hover { color: var(--text); }
+        .modal h2 { margin-bottom: 16px; font-size: 1.15rem; }
+        .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .modal-grid .item { background: var(--bg); padding: 12px; border-radius: var(--radius-sm); }
+        .modal-grid .item .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); }
+        .modal-grid .item .val { font-weight: 700; font-size: 1rem; margin-top: 2px; }
+
+        /* ── EMPTY ──────────────────────────── */
+        .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
+        .empty-state .icon { font-size: 3rem; margin-bottom: 12px; opacity: .6; }
+
+        /* ── RESPONSIVE ─────────────────────── */
+        @media (max-width: 768px) {
+            .navbar-stats { display: none; }
+            .charts-grid { grid-template-columns: 1fr; }
+            .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+            .modal-grid { grid-template-columns: 1fr; }
+            .toolbar { flex-direction: column; }
+            .toolbar input, .toolbar select { width: 100%; }
+        }
     </style>
 </head>
 <body>
+    <!-- ─── NAVBAR ────────────────────────────── -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <div class="icon">💼</div>
+            <span>Payroll Dashboard</span>
+        </div>
+        <div class="navbar-stats">
+            <div class="navbar-stat">
+                <div class="val" id="nav-total-emp">{{ total_employees }}</div>
+                <div class="lbl">Employees</div>
+            </div>
+            <div class="navbar-stat">
+                <div class="val" id="nav-total-payroll">${{ "{:,.2f}".format(total_payroll) }}</div>
+                <div class="lbl">Total Payroll</div>
+            </div>
+            <div class="navbar-stat">
+                <div class="val" id="nav-avg-salary">${{ "{:,.2f}".format(avg_salary) }}</div>
+                <div class="lbl">Avg Salary</div>
+            </div>
+        </div>
+    </nav>
+
     <div class="container">
-        <header>
-            <h1>Payroll Admin Dashboard</h1>
-            <p class="subtitle">Enter an employee ID to view details, or browse the full employee roster below.</p>
-        </header>
+        <!-- ─── METRIC CARDS ──────────────────── -->
+        <div class="metrics-grid" id="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-icon purple">👥</div>
+                <div class="metric-body">
+                    <div class="metric-value" id="mc-employees">{{ total_employees }}</div>
+                    <div class="metric-label">Total Employees</div>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon amber">💰</div>
+                <div class="metric-body">
+                    <div class="metric-value" id="mc-payroll">${{ "{:,.0f}".format(total_payroll) }}</div>
+                    <div class="metric-label">Total Monthly Payroll</div>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon green">📊</div>
+                <div class="metric-body">
+                    <div class="metric-value" id="mc-avg">${{ "{:,.0f}".format(avg_salary) }}</div>
+                    <div class="metric-label">Average Salary</div>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon blue">🏢</div>
+                <div class="metric-body">
+                    <div class="metric-value" id="mc-depts">{{ departments_list|length }}</div>
+                    <div class="metric-label">Departments</div>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon red">📉</div>
+                <div class="metric-body">
+                    <div class="metric-value" id="mc-tax">--</div>
+                    <div class="metric-label">Avg Tax / Employee</div>
+                </div>
+            </div>
+        </div>
 
-        <form method="get" action="/">
-            <input type="text" name="employee_id" placeholder="Enter employee ID (e.g. E1000)" value="{{ search_id }}" required>
-            <button type="submit">Search Employee</button>
+        <!-- ─── CHARTS ────────────────────────── -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3><span class="dot" style="background:var(--primary)"></span> Department Payroll Breakdown</h3>
+                <div class="chart-wrap"><canvas id="chartDept"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h3><span class="dot" style="background:var(--accent)"></span> Salary Distribution</h3>
+                <div class="chart-wrap"><canvas id="chartDist"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h3><span class="dot" style="background:var(--success)"></span> Average Salary by Role</h3>
+                <div class="chart-wrap"><canvas id="chartRole"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h3><span class="dot" style="background:var(--info)"></span> Headcount by Department</h3>
+                <div class="chart-wrap"><canvas id="chartHeadcount"></canvas></div>
+            </div>
+        </div>
+
+        <!-- ─── SEARCH EMPLOYEE ──────────────── -->
+        <form method="get" action="/" style="margin-bottom:16px; display:flex; gap:10px; flex-wrap:wrap;">
+            <input type="text" name="employee_id" placeholder="Quick search by Employee ID (e.g. E1000)" value="{{ search_id }}" style="flex:1; min-width:260px; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.88rem;">
+            <button type="submit" class="btn btn-primary">🔍 Search</button>
         </form>
-
         {% if not_found %}
-        <div class="alert">
-            Employee with ID <strong>{{ search_id }}</strong> was not found.
+        <div style="background:var(--danger-light); border:1px solid var(--danger); color:#b91c1c; padding:12px 16px; border-radius:var(--radius-sm); margin-bottom:16px; font-weight:500;">
+            ⚠️ Employee with ID <strong>{{ search_id }}</strong> was not found.
         </div>
         {% endif %}
 
         {% if selected_employee %}
-        <div class="card">
-            <h2>Employee details: {{ selected_employee.employee_id }} - {{ selected_employee.name }}</h2>
-            <p class="small-text">Department: {{ selected_employee.department }} | Role: {{ selected_employee.role }}</p>
-            <div class="summary">
-                <div class="summary-item"><strong>Weekly values</strong><br>{{ selected_employee.weekly_values | join(', ') }}</div>
-                <div class="summary-item"><strong>Adjustments</strong><br>{% if selected_employee.adjustments %}{{ selected_employee.adjustments }}{% else %}None{% endif %}</div>
-                <div class="summary-item"><strong>Deductions</strong><br>{% if selected_employee.deductions %}{{ selected_employee.deductions }}{% else %}None{% endif %}</div>
-            </div>
-            {% if selected_summary %}
-            <div class="summary" style="margin-top: 18px;">
-                <div class="summary-item"><strong>Four-week mean</strong><br>{{ selected_summary.four_week_mean }}</div>
-                <div class="summary-item"><strong>Adjustment total</strong><br>{{ selected_summary.adjustment_total }}</div>
-                <div class="summary-item"><strong>Deduction total</strong><br>{{ selected_summary.deduction_total }}</div>
-                <div class="summary-item"><strong>Payable</strong><br>{{ selected_summary.payable }}</div>
-            </div>
-            {% endif %}
-            {% if selected_anomalies %}
-            <div style="margin-top: 18px;">
-                <h3>Anomaly detection</h3>
-                {% if selected_anomalies.anomalies %}
-                    <ul>
-                        {% for anomaly in selected_anomalies.anomalies %}
-                        <li>Week {{ anomaly.index + 1 }}: {{ anomaly.value }} ({{ anomaly.deviation_pct * 100 }}% deviation)</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="small-text">No anomalies detected.</p>
+        <div class="chart-card" style="margin-bottom:24px; border-left: 4px solid var(--primary);">
+            <h2 style="margin-bottom:4px;">{{ selected_employee.employee_id }} — {{ selected_employee.name }}</h2>
+            <p style="color:var(--text-muted); margin-bottom:16px;">
+                <span class="badge badge-purple">{{ selected_employee.department }}</span>
+                <span class="badge badge-blue">{{ selected_employee.role }}</span>
+            </p>
+            <div class="modal-grid">
+                <div class="item"><div class="lbl">Weekly Values</div><div class="val">{{ selected_employee.weekly_values | join(', ') }}</div></div>
+                <div class="item"><div class="lbl">Adjustments</div><div class="val">{% if selected_employee.adjustments %}{{ selected_employee.adjustments }}{% else %}None{% endif %}</div></div>
+                <div class="item"><div class="lbl">Deductions</div><div class="val">{% if selected_employee.deductions %}{{ selected_employee.deductions }}{% else %}None{% endif %}</div></div>
+                {% if selected_summary %}
+                <div class="item"><div class="lbl">4-Week Mean</div><div class="val">${{ "{:,.2f}".format(selected_summary.four_week_mean) }}</div></div>
+                <div class="item"><div class="lbl">Adjustment Total</div><div class="val">${{ "{:,.2f}".format(selected_summary.adjustment_total) }}</div></div>
+                <div class="item"><div class="lbl">Deduction Total</div><div class="val">${{ "{:,.2f}".format(selected_summary.deduction_total) }}</div></div>
+                <div class="item" style="background:var(--success-light);"><div class="lbl">Net Payable</div><div class="val payable-positive">${{ "{:,.2f}".format(selected_summary.payable) }}</div></div>
                 {% endif %}
+            </div>
+            {% if selected_anomalies and selected_anomalies.anomalies %}
+            <div style="margin-top:12px; background:var(--danger-light); padding:12px; border-radius:var(--radius-sm);">
+                <strong style="color:#b91c1c;">⚠ Anomalies Detected:</strong>
+                <ul style="margin:6px 0 0 18px; font-size:0.85rem;">
+                    {% for a in selected_anomalies.anomalies %}
+                    <li>Week {{ a.index + 1 }}: ${{ "{:,.2f}".format(a.value) }} ({{ "%.1f"|format(a.deviation_pct * 100) }}% deviation)</li>
+                    {% endfor %}
+                </ul>
             </div>
             {% endif %}
             {% if selected_recommendations %}
-            <div style="margin-top: 18px;">
-                <h3>Rule recommendations</h3>
-                <ul>
+            <div style="margin-top:12px;">
+                <strong>💡 Recommendations:</strong>
+                <ul style="margin:6px 0 0 18px; font-size:0.85rem;">
                     {% for rec in selected_recommendations.recommendations %}
                     <li>{{ rec }}</li>
                     {% endfor %}
@@ -86,36 +422,369 @@
         </div>
         {% endif %}
 
-        <div class="card">
-            <h2>All employees ({{ employees | length }})</h2>
-            <p class="small-text">Browse the full employee list and their payroll data.</p>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Department</th>
-                        <th>Role</th>
-                        <th>Weekly values</th>
-                        <th>Adjustments</th>
-                        <th>Deductions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for emp in employees %}
-                    <tr>
-                        <td>{{ emp.employee_id }}</td>
-                        <td>{{ emp.name }}</td>
-                        <td>{{ emp.department }}</td>
-                        <td>{{ emp.role }}</td>
-                        <td>{{ emp.weekly_values | join(', ') }}</td>
-                        <td>{% if emp.adjustments %}{{ emp.adjustments }}{% else %}-{% endif %}</td>
-                        <td>{% if emp.deductions %}{{ emp.deductions }}{% else %}-{% endif %}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <!-- ─── PAGINATED EMPLOYEE TABLE ─────── -->
+        <div class="table-card">
+            <div class="table-header">
+                <h3>📋 Employee Directory</h3>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;" id="table-filters">
+                    <select id="filter-dept" onchange="loadEmployees()">
+                        <option value="">All Departments</option>
+                        {% for d in departments_list %}
+                        <option value="{{ d }}">{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                    <select id="filter-role" onchange="loadEmployees()">
+                        <option value="">All Roles</option>
+                        {% for r in roles_list %}
+                        <option value="{{ r }}">{{ r }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="text" id="filter-search" placeholder="Search name / ID..." oninput="debounceLoad()" style="padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.82rem; min-width:180px;">
+                    <select id="filter-sort" onchange="loadEmployees()">
+                        <option value="employee_id">Sort: ID</option>
+                        <option value="name">Sort: Name</option>
+                        <option value="department">Sort: Department</option>
+                        <option value="role">Sort: Role</option>
+                    </select>
+                    <select id="filter-dir" onchange="loadEmployees()">
+                        <option value="asc">Asc</option>
+                        <option value="desc">Desc</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Role</th>
+                            <th>4W Mean</th>
+                            <th>Adjustments</th>
+                            <th>Deductions</th>
+                            <th>Net Payable</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="employee-tbody">
+                        <tr><td colspan="9" class="empty-state"><div class="icon">⏳</div>Loading employees...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination-controls"></div>
         </div>
     </div>
+
+    <!-- ─── MODAL ────────────────────────────── -->
+    <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal" id="modal-content"></div>
+    </div>
+
+    <script>
+        // ── STATE ────────────────────────────────────
+        let currentPage = 1;
+        let pageSize = 10;
+        let totalPages = 1;
+        let debounceTimer = null;
+        let dashboardData = null;
+
+        // ── CHART INSTANCES ───────────────────────────
+        let chartDept = null, chartDist = null, chartRole = null, chartHeadcount = null;
+
+        const COLORS = ['#6366f1','#f59e0b','#10b981','#0ea5e9','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#06b6d4'];
+        const COLORS_ALPHA = ['rgba(99,102,241,0.7)','rgba(245,158,11,0.7)','rgba(16,185,129,0.7)','rgba(14,165,233,0.7)','rgba(239,68,68,0.7)','rgba(139,92,246,0.7)','rgba(236,72,153,0.7)','rgba(20,184,166,0.7)','rgba(249,115,22,0.7)','rgba(6,182,212,0.7)'];
+
+        function destroyCharts() {
+            [chartDept, chartDist, chartRole, chartHeadcount].forEach(c => { if (c) c.destroy(); });
+        }
+
+        function buildCharts(data) {
+            destroyCharts();
+
+            // Department Payroll Doughnut
+            const deptCtx = document.getElementById('chartDept').getContext('2d');
+            chartDept = new Chart(deptCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.departments.map(d => d.name),
+                    datasets: [{
+                        data: data.departments.map(d => d.total_payroll),
+                        backgroundColor: COLORS_ALPHA,
+                        borderColor: COLORS,
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyleWidth: 10 } },
+                        tooltip: { callbacks: { label: ctx => ` $${ctx.raw.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}` } }
+                    }
+                }
+            });
+
+            // Salary Distribution Bar
+            const distCtx = document.getElementById('chartDist').getContext('2d');
+            chartDist = new Chart(distCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.salary_distribution.ranges,
+                    datasets: [{
+                        label: 'Employees',
+                        data: data.salary_distribution.counts,
+                        backgroundColor: COLORS_ALPHA,
+                        borderColor: COLORS,
+                        borderWidth: 1.5,
+                        borderRadius: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#f1f5f9' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Avg Salary by Role - Horizontal Bar
+            const roleCtx = document.getElementById('chartRole').getContext('2d');
+            chartRole = new Chart(roleCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.roles.map(r => r.name),
+                    datasets: [{
+                        label: 'Avg Salary',
+                        data: data.roles.map(r => r.avg_salary),
+                        backgroundColor: COLORS_ALPHA,
+                        borderColor: COLORS,
+                        borderWidth: 1.5,
+                        borderRadius: 6,
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, ticks: { callback: v => '$'+v }, grid: { color: '#f1f5f9' } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Headcount by Department - Polar Area
+            const hcCtx = document.getElementById('chartHeadcount').getContext('2d');
+            chartHeadcount = new Chart(hcCtx, {
+                type: 'polarArea',
+                data: {
+                    labels: data.departments.map(d => d.name),
+                    datasets: [{
+                        data: data.departments.map(d => d.count),
+                        backgroundColor: COLORS_ALPHA,
+                        borderColor: COLORS,
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { padding: 14, usePointStyle: true } }
+                    }
+                }
+            });
+
+            // Update metric cards
+            document.getElementById('mc-employees').textContent = data.total_employees;
+            document.getElementById('mc-payroll').textContent = '$' + data.total_monthly_payroll.toLocaleString(undefined, {maximumFractionDigits:0});
+            document.getElementById('mc-avg').textContent = '$' + data.avg_salary.toLocaleString(undefined, {maximumFractionDigits:0});
+            document.getElementById('mc-depts').textContent = data.departments.length;
+            document.getElementById('mc-tax').textContent = '$' + (data.avg_tax || 0).toLocaleString(undefined, {maximumFractionDigits:0});
+
+            // Update navbar
+            document.getElementById('nav-total-emp').textContent = data.total_employees;
+            document.getElementById('nav-total-payroll').textContent = '$' + data.total_monthly_payroll.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+            document.getElementById('nav-avg-salary').textContent = '$' + data.avg_salary.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+        }
+
+        async function loadDashboard() {
+            try {
+                const res = await fetch('/api/dashboard');
+                dashboardData = await res.json();
+                buildCharts(dashboardData);
+            } catch (err) {
+                console.error('Dashboard load failed:', err);
+            }
+        }
+
+        // ── PAGINATED EMPLOYEE LIST ──────────────────
+        function debounceLoad() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => loadEmployees(1), 350);
+        }
+
+        async function loadEmployees(page = currentPage) {
+            const search = document.getElementById('filter-search')?.value || '';
+            const dept = document.getElementById('filter-dept')?.value || '';
+            const role = document.getElementById('filter-role')?.value || '';
+            const sort = document.getElementById('filter-sort')?.value || 'employee_id';
+            const dir = document.getElementById('filter-dir')?.value || 'asc';
+
+            const params = new URLSearchParams({ page, page_size: pageSize, sort_by: sort, sort_dir: dir });
+            if (search) params.set('search', search);
+            if (dept) params.set('department', dept);
+            if (role) params.set('role', role);
+
+            const tbody = document.getElementById('employee-tbody');
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="icon">⏳</div>Loading...</td></tr>';
+
+            try {
+                const res = await fetch(`/api/employees/paginated?${params}`);
+                const data = await res.json();
+
+                currentPage = data.page;
+                totalPages = data.total_pages;
+
+                if (!data.data || data.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="icon">📭</div>No employees found matching your filters.</td></tr>';
+                } else {
+                    tbody.innerHTML = data.data.map(e => {
+                        const deptColors = { 'Engineering':'purple', 'Finance':'blue', 'HR':'amber', 'Sales':'green', 'Support':'red' };
+                        const dc = deptColors[e.department] || 'gray';
+                        const roleColors = { 'Director':'purple', 'Manager':'blue', 'Engineer':'green', 'Analyst':'amber', 'Clerk':'gray' };
+                        const rc = roleColors[e.role] || 'gray';
+                        const adjStr = e.adjustments && Object.keys(e.adjustments).length ? Object.entries(e.adjustments).map(([k,v])=>`${k}:$${v}`).join(', ') : '—';
+                        const dedStr = e.deductions && Object.keys(e.deductions).length ? Object.entries(e.deductions).map(([k,v])=>`${k}:$${v}`).join(', ') : '—';
+                        return `<tr>
+                            <td><code style="background:var(--bg); padding:2px 8px; border-radius:4px; font-size:0.82rem;">${e.employee_id}</code></td>
+                            <td><strong>${e.name}</strong></td>
+                            <td><span class="badge badge-${dc}">${e.department}</span></td>
+                            <td><span class="badge badge-${rc}">${e.role}</span></td>
+                            <td>$${e.four_week_mean.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                            <td style="font-size:0.8rem;">${adjStr}</td>
+                            <td style="font-size:0.8rem;">${dedStr}</td>
+                            <td><span class="payable-positive">$${e.payable.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></td>
+                            <td><button class="btn btn-outline btn-xs" onclick="viewEmployee('${e.employee_id}')">📋 View</button></td>
+                        </tr>`;
+                    }).join('');
+                }
+                renderPagination();
+            } catch (err) {
+                tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="icon">❌</div>Failed to load employees.</td></tr>';
+                console.error(err);
+            }
+        }
+
+        function renderPagination() {
+            const container = document.getElementById('pagination-controls');
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+            let html = `<button ${currentPage===1?'disabled':''} onclick="loadEmployees(1)">««</button>`;
+            html += `<button ${currentPage===1?'disabled':''} onclick="loadEmployees(${currentPage-1})">«</button>`;
+
+            const maxButtons = 7;
+            let start = Math.max(1, currentPage - Math.floor(maxButtons/2));
+            let end = Math.min(totalPages, start + maxButtons - 1);
+            if (end - start < maxButtons - 1) start = Math.max(1, end - maxButtons + 1);
+
+            if (start > 1) html += `<button disabled>…</button>`;
+            for (let i = start; i <= end; i++) {
+                html += `<button class="${i===currentPage?'active':''}" onclick="loadEmployees(${i})">${i}</button>`;
+            }
+            if (end < totalPages) html += `<button disabled>…</button>`;
+
+            html += `<button ${currentPage===totalPages?'disabled':''} onclick="loadEmployees(${currentPage+1})">»</button>`;
+            html += `<button ${currentPage===totalPages?'disabled':''} onclick="loadEmployees(${totalPages})">»»</button>`;
+            html += `<span class="page-info">Page ${currentPage} of ${totalPages}</span>`;
+            container.innerHTML = html;
+        }
+
+        // ── MODAL: VIEW EMPLOYEE DETAIL ──────────────
+        async function viewEmployee(empId) {
+            const overlay = document.getElementById('modal-overlay');
+            const content = document.getElementById('modal-content');
+            content.innerHTML = '<div class="empty-state"><div class="icon">⏳</div>Loading...</div>';
+            overlay.classList.add('show');
+
+            try {
+                const [empRes, calcRes, anomalyRes, recRes] = await Promise.all([
+                    fetch(`/employees/${empId}`),
+                    fetch(`/employees/${empId}/calculate`),
+                    fetch(`/employees/${empId}/analyze`),
+                    fetch(`/employees/${empId}/recommend`),
+                ]);
+                const emp = await empRes.json();
+                const calc = await calcRes.json();
+                const anomaly = await anomalyRes.json();
+                const rec = await recRes.json();
+
+                const deptColors = { 'Engineering':'purple', 'Finance':'blue', 'HR':'amber', 'Sales':'green', 'Support':'red' };
+                const dc = deptColors[emp.department] || 'gray';
+                const roleColors = { 'Director':'purple', 'Manager':'blue', 'Engineer':'green', 'Analyst':'amber', 'Clerk':'gray' };
+                const rc = roleColors[emp.role] || 'gray';
+
+                let anomalyHtml = '';
+                if (anomaly.anomalies && anomaly.anomalies.length > 0) {
+                    anomalyHtml = `<div style="margin-top:12px; background:var(--danger-light); padding:12px; border-radius:var(--radius-sm);">
+                        <strong style="color:#b91c1c;">⚠ Anomalies Detected:</strong>
+                        <ul style="margin:6px 0 0 18px; font-size:0.85rem;">
+                            ${anomaly.anomalies.map(a => `<li>Week ${a.index+1}: $${a.value.toLocaleString()} (${(a.deviation_pct*100).toFixed(1)}% deviation)</li>`).join('')}
+                        </ul>
+                    </div>`;
+                } else {
+                    anomalyHtml = `<p style="margin-top:12px; color:var(--success);">✅ No anomalies detected — data looks consistent.</p>`;
+                }
+
+                let recHtml = '';
+                if (rec.recommendations) {
+                    recHtml = `<div style="margin-top:12px;"><strong>💡 Recommendations:</strong><ul style="margin:6px 0 0 18px; font-size:0.85rem;">${rec.recommendations.map(r=>`<li>${r}</li>`).join('')}</ul></div>`;
+                }
+
+                content.innerHTML = `
+                    <button class="modal-close" onclick="closeModal()">✕</button>
+                    <h2>${emp.employee_id} — ${emp.name}</h2>
+                    <p style="margin-bottom:16px;">
+                        <span class="badge badge-${dc}">${emp.department}</span>
+                        <span class="badge badge-${rc}">${emp.role}</span>
+                    </p>
+                    <div class="modal-grid">
+                        <div class="item"><div class="lbl">Weekly Values</div><div class="val">${emp.weekly_values.join(', ')}</div></div>
+                        <div class="item"><div class="lbl">Adjustments</div><div class="val">${emp.adjustments && Object.keys(emp.adjustments).length ? JSON.stringify(emp.adjustments) : 'None'}</div></div>
+                        <div class="item"><div class="lbl">Deductions</div><div class="val">${emp.deductions && Object.keys(emp.deductions).length ? JSON.stringify(emp.deductions) : 'None'}</div></div>
+                        <div class="item"><div class="lbl">4-Week Mean</div><div class="val">$${calc.four_week_mean.toLocaleString(undefined,{minimumFractionDigits:2})}</div></div>
+                        <div class="item"><div class="lbl">Adjustment Total</div><div class="val">$${calc.adjustment_total.toLocaleString(undefined,{minimumFractionDigits:2})}</div></div>
+                        <div class="item"><div class="lbl">Deduction Total</div><div class="val">$${calc.deduction_total.toLocaleString(undefined,{minimumFractionDigits:2})}</div></div>
+                        <div class="item" style="background:var(--success-light);"><div class="lbl">Net Payable</div><div class="val payable-positive">$${calc.payable.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+                    </div>
+                    ${anomalyHtml}
+                    ${recHtml}
+                `;
+            } catch (err) {
+                content.innerHTML = '<div class="empty-state"><div class="icon">❌</div>Failed to load employee details.</div>';
+                console.error(err);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.remove('show');
+        }
+
+        // ── INIT ────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboard();
+            loadEmployees(1);
+        });
+
+        // Keyboard shortcut to close modal
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+    </script>
 </body>
 </html>

@@ -45,7 +45,9 @@ docker run --rm -v "${PWD}:/app" -w /app python:3.11-slim python scripts/import_
 docker run --rm -p 8000:8000 -v "${PWD}:/app" -w /app salary-gateway
 ```
 
-You can then open `http://localhost:8000/docs` to interact with the API.
+Open `http://localhost:8000/` in your browser to use the interactive Payroll Admin Dashboard.
+
+If you want the raw API docs, open `http://localhost:8000/docs`.
 
 Docker Compose:
 

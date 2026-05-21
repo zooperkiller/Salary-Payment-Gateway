@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payroll Admin Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 16px; background: #f7f9fc; color: #1f2937; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { margin-bottom: 24px; }
+        h1 { margin-bottom: 8px; }
+        form { margin-bottom: 24px; display: flex; gap: 8px; flex-wrap: wrap; }
+        input[type=text] { width: 260px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; }
+        button { padding: 10px 16px; border: none; border-radius: 6px; background: #2563eb; color: white; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
+        .alert { background: #fef3c7; border: 1px solid #fcd34d; padding: 12px; border-radius: 8px; margin-bottom: 24px; }
+        .card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin-bottom: 24px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background: #f1f5f9; }
+        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+        .summary-item { background: #eef2ff; padding: 12px; border-radius: 8px; }
+        .subtitle { color: #475569; margin-top: 0; }
+        .small-text { color: #64748b; font-size: 0.95rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Payroll Admin Dashboard</h1>
+            <p class="subtitle">Enter an employee ID to view details, or browse the full employee roster below.</p>
+        </header>
+
+        <form method="get" action="/">
+            <input type="text" name="employee_id" placeholder="Enter employee ID (e.g. E1000)" value="{{ search_id }}" required>
+            <button type="submit">Search Employee</button>
+        </form>
+
+        {% if not_found %}
+        <div class="alert">
+            Employee with ID <strong>{{ search_id }}</strong> was not found.
+        </div>
+        {% endif %}
+
+        {% if selected_employee %}
+        <div class="card">
+            <h2>Employee details: {{ selected_employee.employee_id }} - {{ selected_employee.name }}</h2>
+            <p class="small-text">Department: {{ selected_employee.department }} | Role: {{ selected_employee.role }}</p>
+            <div class="summary">
+                <div class="summary-item"><strong>Weekly values</strong><br>{{ selected_employee.weekly_values | join(', ') }}</div>
+                <div class="summary-item"><strong>Adjustments</strong><br>{% if selected_employee.adjustments %}{{ selected_employee.adjustments }}{% else %}None{% endif %}</div>
+                <div class="summary-item"><strong>Deductions</strong><br>{% if selected_employee.deductions %}{{ selected_employee.deductions }}{% else %}None{% endif %}</div>
+            </div>
+            {% if selected_summary %}
+            <div class="summary" style="margin-top: 18px;">
+                <div class="summary-item"><strong>Four-week mean</strong><br>{{ selected_summary.four_week_mean }}</div>
+                <div class="summary-item"><strong>Adjustment total</strong><br>{{ selected_summary.adjustment_total }}</div>
+                <div class="summary-item"><strong>Deduction total</strong><br>{{ selected_summary.deduction_total }}</div>
+                <div class="summary-item"><strong>Payable</strong><br>{{ selected_summary.payable }}</div>
+            </div>
+            {% endif %}
+            {% if selected_anomalies %}
+            <div style="margin-top: 18px;">
+                <h3>Anomaly detection</h3>
+                {% if selected_anomalies.anomalies %}
+                    <ul>
+                        {% for anomaly in selected_anomalies.anomalies %}
+                        <li>Week {{ anomaly.index + 1 }}: {{ anomaly.value }} ({{ anomaly.deviation_pct * 100 }}% deviation)</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="small-text">No anomalies detected.</p>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% if selected_recommendations %}
+            <div style="margin-top: 18px;">
+                <h3>Rule recommendations</h3>
+                <ul>
+                    {% for rec in selected_recommendations.recommendations %}
+                    <li>{{ rec }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="card">
+            <h2>All employees ({{ employees | length }})</h2>
+            <p class="small-text">Browse the full employee list and their payroll data.</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Department</th>
+                        <th>Role</th>
+                        <th>Weekly values</th>
+                        <th>Adjustments</th>
+                        <th>Deductions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr>
+                        <td>{{ emp.employee_id }}</td>
+                        <td>{{ emp.name }}</td>
+                        <td>{{ emp.department }}</td>
+                        <td>{{ emp.role }}</td>
+                        <td>{{ emp.weekly_values | join(', ') }}</td>
+                        <td>{% if emp.adjustments %}{{ emp.adjustments }}{% else %}-{% endif %}</td>
+                        <td>{% if emp.deductions %}{{ emp.deductions }}{% else %}-{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

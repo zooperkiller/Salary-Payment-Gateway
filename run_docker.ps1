@@ -24,9 +24,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $pwd = (Get-Location).Path
-Write-Host "Running container (attached) on port 8000 with host mount $pwd..."
+Write-Host "Running container (attached) on port 8000 with persistent DB at $pwd\employees.db..."
 try {
-    docker run --rm -p 8000:8000 -v "$pwd:/app" -w /app --name salary-gateway-run salary-gateway
+    docker run --rm -p 8000:8000 -v "$pwd\employees.db:/app/employees.db" -w /app --name salary-gateway-run salary-gateway
 } catch {
     Write-Host "Failed to start container. Check for port conflicts or permission issues." -ForegroundColor Red
     exit 1

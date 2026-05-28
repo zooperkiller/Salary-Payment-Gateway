@@ -576,6 +576,164 @@
             .toolbar { flex-direction: column; }
             .toolbar input, .toolbar select { width: 100%; }
         }
+
+        /* ── Budget & What-If ─────────────────────────────────── */
+        .whatif-panel { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
+        .adjustment-block { background: var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .adjustment-block select, .adjustment-block input { padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-xs); background: var(--input-bg); color: var(--text); font-size: 0.78rem; }
+        .adjustment-block .adj-remove { color: var(--danger); cursor: pointer; font-weight: bold; background: none; border: none; font-size: 1.1rem; line-height: 1; }
+        .delta-up { color: var(--success); }
+        .delta-down { color: var(--danger); }
+        .scenario-item { background: var(--border); border-radius: var(--radius-sm); padding: 8px 10px; margin-bottom: 6px; cursor: pointer; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .scenario-item:hover { background: var(--surface); }
+        .bracket-alert { background: var(--danger-light); border-left: 4px solid var(--danger); padding: 8px 12px; border-radius: var(--radius-xs); margin: 4px 0; font-size: 0.78rem; }
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+        .budget-status { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+        .budget-status.on-track { background: rgba(52,211,153,0.18); color: var(--success); }
+        .budget-status.under { background: rgba(56,189,248,0.18); color: var(--info); }
+        .budget-status.over { background: rgba(251,191,36,0.18); color: var(--accent); }
+        .budget-status.critical { background: rgba(248,113,113,0.18); color: var(--danger); }
+        @media (max-width: 768px) {
+            .whatif-panel { grid-template-columns: 1fr; }
+            .adjustment-block { flex-direction: column; align-items: stretch; }
+        }
+
+        /* ── PRO ANIMATIONS ───────────────────────────────────────── */
+        /* Staggered entrance for metric cards */
+        .metrics-grid .metric-card { animation: cardRiseIn 0.5s ease both; }
+        .metrics-grid .metric-card:nth-child(1) { animation-delay: 0.02s; }
+        .metrics-grid .metric-card:nth-child(2) { animation-delay: 0.08s; }
+        .metrics-grid .metric-card:nth-child(3) { animation-delay: 0.14s; }
+        .metrics-grid .metric-card:nth-child(4) { animation-delay: 0.20s; }
+        .metrics-grid .metric-card:nth-child(5) { animation-delay: 0.26s; }
+        .metrics-grid .metric-card:nth-child(6) { animation-delay: 0.32s; }
+        @keyframes cardRiseIn {
+            from { opacity: 0; transform: translateY(18px) scale(0.96); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Chart card staggered entrance */
+        .chart-card { animation: cardRiseIn 0.5s ease both; }
+        .charts-row:nth-of-type(1) .chart-card:nth-child(1) { animation-delay: 0.04s; }
+        .charts-row:nth-of-type(1) .chart-card:nth-child(2) { animation-delay: 0.10s; }
+        .charts-row:nth-of-type(2) .chart-card:nth-child(1) { animation-delay: 0.16s; }
+        .charts-row:nth-of-type(2) .chart-card:nth-child(2) { animation-delay: 0.22s; }
+        .charts-row:nth-of-type(3) .chart-card:nth-child(1) { animation-delay: 0.28s; }
+        .charts-row:nth-of-type(3) .chart-card:nth-child(2) { animation-delay: 0.34s; }
+
+        /* Pulse glow on hover for interactive cards */
+        @keyframes glowPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(45,212,191,0); }
+            50%      { box-shadow: 0 0 18px 4px rgba(45,212,191,0.12); }
+        }
+        .chart-card:hover, .metric-card:hover {
+            animation: glowPulse 1.6s ease-in-out infinite;
+        }
+
+        /* Skeleton loading shimmer */
+        .skeleton {
+            background: linear-gradient(90deg, rgba(148,163,184,0.06) 25%, rgba(148,163,184,0.15) 50%, rgba(148,163,184,0.06) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.6s ease-in-out infinite;
+            border-radius: var(--radius-xs);
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .skeleton-text { height: 14px; margin-bottom: 8px; width: 80%; }
+        .skeleton-text.short { width: 50%; }
+        .skeleton-value { height: 24px; margin-bottom: 6px; width: 60%; }
+        .skeleton-card { height: 88px; }
+
+        /* Ripple effect on buttons */
+        .btn { position: relative; overflow: hidden; }
+        .btn::after {
+            content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at center, rgba(255,255,255,0.3) 0%, transparent 70%);
+            opacity: 0; transition: opacity 0.4s;
+        }
+        .btn:active::after { opacity: 1; transition: opacity 0s; }
+
+        /* Fade-slide for dynamic content */
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-in { animation: fadeSlideUp 0.35s ease both; }
+
+        /* Table row entrance */
+        .main-table tbody tr, .mini-table tbody tr {
+            animation: fadeSlideUp 0.3s ease both;
+        }
+        .main-table tbody tr:nth-child(1), .mini-table tbody tr:nth-child(1)  { animation-delay: 0.02s; }
+        .main-table tbody tr:nth-child(2), .mini-table tbody tr:nth-child(2)  { animation-delay: 0.05s; }
+        .main-table tbody tr:nth-child(3), .mini-table tbody tr:nth-child(3)  { animation-delay: 0.08s; }
+        .main-table tbody tr:nth-child(4), .mini-table tbody tr:nth-child(4)  { animation-delay: 0.11s; }
+        .main-table tbody tr:nth-child(5), .mini-table tbody tr:nth-child(5)  { animation-delay: 0.14s; }
+
+        /* Toast slide */
+        @keyframes toastSlide {
+            from { opacity: 0; transform: translateX(60px) scale(0.9); }
+            to   { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        .toast { animation: toastSlide 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+        /* Modal backdrop blur-in */
+        .modal-overlay.show {
+            animation: backdropIn 0.2s ease;
+        }
+        @keyframes backdropIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+
+        /* Number pop (for count-up effect) */
+        @keyframes numPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.06); }
+            100% { transform: scale(1); }
+        }
+        .num-pop { animation: numPop 0.4s ease; }
+
+        /* Nav tab underline slide */
+        .nav-links a {
+            position: relative;
+        }
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 50%; width: 0; height: 2px;
+            background: var(--primary);
+            transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateX(-50%);
+            border-radius: 2px;
+        }
+        .nav-links a:hover::after, .nav-links a.active::after {
+            width: 60%;
+        }
+
+        /* Glass card reflection effect */
+        .metric-card::before, .chart-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 60%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.02), transparent);
+            transition: left 0.7s ease;
+        }
+        .metric-card:hover::before, .chart-card:hover::before {
+            left: 120%;
+        }
+
+        /* Disable animations for users who prefer reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -587,12 +745,17 @@
         <a href="#dashboard-section" onclick="scrollToSection('dashboard-section')" class="active" data-nav="dashboard">📊 Dashboard</a>
         <a href="#employee-section" onclick="scrollToSection('employee-section')" data-nav="employees">📋 Directory</a>
         <a href="#faq-section" onclick="scrollToSection('faq-section')" data-nav="faq">❓ FAQ</a>
+        <a href="#budget-section" onclick="scrollToSection('budget-section')" data-nav="budget">💰 Budget</a>
+        <a href="#whatif-section" onclick="scrollToSection('whatif-section')" data-nav="whatif">🔮 What-If</a>
     </div>
     <div class="nav-search">
         <span class="search-icon">🔍</span>
         <input type="text" id="nav-search-input" placeholder="Search by name, ID, department..." oninput="handleNavSearch()">
     </div>
     <div class="nav-actions">
+        <select id="company-switcher" onchange="onCompanyChange()" style="background:rgba(255,255,255,0.06); color:#e2e8f0; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:7px 12px; font-size:13px; cursor:pointer; margin-right:8px;">
+            <option value="default">🏢 Default Company</option>
+        </select>
         <button class="btn btn-accent btn-sm" onclick="openUploadModal()">📤 Upload</button>
         <button class="btn btn-primary btn-sm" onclick="openAddEmployeeModal()">＋ Add Employee</button>
     </div>
@@ -773,6 +936,75 @@
     <div class="section-title" id="faq-section" style="margin-top:36px;"><span class="dot" style="background:var(--info)"></span>Frequently Asked Questions</div>
     <div id="faq-container"><div class="empty-state">Loading FAQ...</div></div>
 
+    <!-- ── BUDGET SECTION ──────────────────────────────────────── -->
+    <div class="section-title" id="budget-section" style="margin-top:36px;"><span class="dot" style="background:var(--accent)"></span>Budget vs Actual</div>
+
+    <div class="metrics-grid" id="budget-summary-cards">
+        <div class="metric-card"><div class="metric-icon mic-green">💰</div><div class="metric-body"><div class="metric-value" id="bc-budget-net">--</div><div class="metric-label">Total Budget (Net)</div></div></div>
+        <div class="metric-card"><div class="metric-icon mic-blue">📊</div><div class="metric-body"><div class="metric-value" id="bc-actual-net">--</div><div class="metric-label">Total Actual (Net)</div></div></div>
+        <div class="metric-card"><div class="metric-icon mic-amber">📉</div><div class="metric-body"><div class="metric-value" id="bc-variance">--</div><div class="metric-label">Variance $</div></div></div>
+        <div class="metric-card"><div class="metric-icon mic-purple">📈</div><div class="metric-body"><div class="metric-value" id="bc-variance-pct">--</div><div class="metric-label">Variance %</div></div></div>
+        <div class="metric-card"><div class="metric-icon mic-red">⚠️</div><div class="metric-body"><div class="metric-value" id="bc-depts-over">--</div><div class="metric-label">Depts Over/Critical</div></div></div>
+        <div class="metric-card"><div class="metric-icon mic-info">✅</div><div class="metric-body"><div class="metric-value" id="bc-depts-track">--</div><div class="metric-label">Depts On Track</div></div></div>
+    </div>
+
+    <div class="charts-row">
+        <div class="chart-card" style="grid-column: 1 / -1;">
+            <h3><span class="dot" style="background:var(--accent)"></span>Department Budget Utilization</h3>
+            <div class="chart-wrap" style="max-height:400px;">
+                <canvas id="chartBudgetGauge"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+            <h3 style="margin:0;"><span class="dot" style="background:var(--primary)"></span>Budget vs Actual Detail</h3>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <select id="budget-fiscal-year-filter" onchange="loadBudgetAnalysis()" style="padding:6px 8px; border:1px solid var(--border); border-radius:var(--radius-xs); background:var(--input-bg); color:var(--text); font-size:0.78rem;">
+                    <option value="2024">FY 2024</option><option value="2025">FY 2025</option><option value="2026" selected>FY 2026</option><option value="2027">FY 2027</option>
+                </select>
+                <button class="btn btn-accent btn-sm" onclick="openBudgetFormModal()">＋ Add Budget</button>
+            </div>
+        </div>
+        <div class="dept-table-wrap">
+            <table class="mini-table" id="budget-detail-table">
+                <thead><tr>
+                    <th>Department</th><th>Budget Net</th><th>Actual Net</th>
+                    <th>Variance $</th><th>Util %</th><th>Headcount (B/A)</th>
+                    <th>Status</th><th></th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ── WHAT-IF SECTION ─────────────────────────────────────── -->
+    <div class="section-title" id="whatif-section" style="margin-top:36px;"><span class="dot" style="background:var(--purple)"></span>What-If Scenario Modeling</div>
+
+    <div class="whatif-panel">
+        <div class="chart-card" style="max-height:fit-content;">
+            <h3><span class="dot" style="background:var(--purple)"></span>Adjustment Builder</h3>
+            <div id="adjustment-list"></div>
+            <button class="btn btn-outline btn-sm" onclick="addAdjustmentBlock()" style="margin-top:8px; width:100%;">＋ Add Adjustment</button>
+            <div style="margin-top:12px; display:flex; gap:8px;">
+                <input type="text" id="scenario-name" placeholder="Scenario name (optional)" style="flex:1; padding:8px; border:1px solid var(--border); border-radius:var(--radius-xs); background:var(--input-bg); color:var(--text); font-size:0.8rem;">
+            </div>
+            <div style="margin-top:8px; display:flex; gap:8px;">
+                <button class="btn btn-primary btn-sm" id="btn-run-scenario" onclick="runScenario()" style="flex:1;">▶ Run Scenario</button>
+                <button class="btn btn-outline btn-sm" onclick="saveScenario()">💾 Save</button>
+            </div>
+            <div id="saved-scenarios-list" style="margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
+                <h4 style="font-size:0.78rem; color:var(--text-muted); margin-bottom:8px;">Saved Scenarios</h4>
+                <div id="saved-scenarios-items"></div>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h3><span class="dot" style="background:var(--success)"></span>Scenario Results</h3>
+            <div id="scenario-results"><div class="empty-state">Run a scenario to see projected impact</div></div>
+        </div>
+    </div>
+
 </div>
 
 <!-- ══════════════════ MODALS ═══════════════════════════════════ -->
@@ -800,13 +1032,20 @@
 <!-- TOAST CONTAINER -->
 <div class="toast-container" id="toast-container"></div>
 
+<!-- BUDGET FORM MODAL -->
+<div class="modal-overlay" id="budget-form-modal-overlay" onclick="if(event.target===this)closeBudgetFormModal()">
+    <div class="modal wide" id="budget-form-modal-content"></div>
+</div>
+
 <script>
 // ── STATE ──────────────────────────────────────────
 let currentPage = 1, pageSize = 15, totalPages = 1, debounceTimer = null;
 let empFilters = null;
+let currentCompany = 'default';
 
 let chartSalaryDist=null, chartDeptPie=null, chartGenderPay=null;
 let chartAge=null, chartCountry=null, chartDesignation=null;
+let chartBudgetGauge=null;
 
 const COLORS = ['#818cf8','#fbbf24','#34d399','#38bdf8','#f87171','#a78bfa','#f472b6','#2dd4bf','#fb923c','#22d3ee'];
 const COLORS_GLOW = ['rgba(129,140,248,0.5)','rgba(251,191,36,0.5)','rgba(52,211,153,0.5)','rgba(56,189,248,0.5)','rgba(248,113,113,0.5)','rgba(167,139,250,0.5)','rgba(244,114,182,0.5)','rgba(45,212,191,0.5)','rgba(251,146,60,0.5)','rgba(34,211,238,0.5)'];
@@ -816,8 +1055,60 @@ function fmt(n, d=0) { return n != null ? n.toLocaleString(undefined, {minimumFr
 function fmt$(n) { return n != null ? '$'+n.toLocaleString(undefined, {maximumFractionDigits:0}) : '--'; }
 
 function destroyAll() {
-    [chartSalaryDist, chartDeptPie, chartGenderPay, chartAge, chartCountry, chartDesignation]
+    [chartSalaryDist, chartDeptPie, chartGenderPay, chartAge, chartCountry, chartDesignation, chartBudgetGauge]
         .forEach(c => { if(c) c.destroy(); });
+}
+
+// ── ANIMATION UTILITIES ────────────────────────────
+function countUp(el, target, duration = 800) {
+    const start = parseFloat(el.textContent.replace(/[^0-9.-]/g, '')) || 0;
+    const startTime = performance.now();
+    function step(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+        const current = start + (target - start) * eased;
+        el.textContent = '$' + Math.round(current).toLocaleString();
+        if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+}
+
+function animateValue(el, formatter, target, duration = 600) {
+    const start = parseFloat(el.textContent.replace(/[^0-9.-]/g, '')) || 0;
+    const startTime = performance.now();
+    function step(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = start + (target - start) * eased;
+        el.textContent = formatter(current);
+        if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+}
+
+function showSkeleton(containerId, count = 3, type = 'card') {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    if (type === 'card') {
+        el.innerHTML = Array(count).fill(`<div class="skeleton skeleton-card" style="height:88px;"></div>`).join('');
+    } else if (type === 'table') {
+        el.innerHTML = `<div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text short"></div><div class="skeleton skeleton-text"></div>`.repeat(count);
+    }
+}
+
+function staggerAnimate(selector) {
+    document.querySelectorAll(selector).forEach((el, i) => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(12px)';
+        el.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+        el.style.transitionDelay = (i * 0.04) + 's';
+        requestAnimationFrame(() => {
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
+        });
+    });
 }
 
 // ── CHART HELPERS ───────────────────────────────────
@@ -942,7 +1233,7 @@ async function viewEmployeeInPlace(empId) {
 // ── DASHBOARD ──────────────────────────────────────
 async function loadDashboard() {
     try {
-        const res = await fetch('/api/dashboard');
+        const res = await fetch('/api/dashboard?company_id=' + currentCompany);
         const d = await res.json();
         if (!d.total_employees) return;
         destroyAll();
@@ -1118,6 +1409,7 @@ function debounceLoad() { clearTimeout(debounceTimer); debounceTimer = setTimeou
 async function loadEmployees(page = currentPage) {
     const params = new URLSearchParams({
         page, page_size: pageSize,
+        company_id: currentCompany,
         search: document.getElementById('f-search')?.value || '',
         department: document.getElementById('f-dept')?.value || '',
         status: document.getElementById('f-status')?.value || '',
@@ -1252,7 +1544,7 @@ function closeEmpModal() { document.getElementById('emp-modal-overlay').classLis
 async function loadFilters() {
     if (empFilters) return empFilters;
     try {
-        const res = await fetch('/api/filters');
+        const res = await fetch('/api/filters?company_id=' + currentCompany);
         empFilters = await res.json();
     } catch(e) { empFilters = {}; }
     return empFilters;
@@ -1564,16 +1856,339 @@ async function loadFAQ() {
 // ── KEYBOARD ───────────────────────────────────────
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-        closeEmpModal(); closeUploadModal(); closeFormModal(); closeDeleteModal();
+        closeEmpModal(); closeUploadModal(); closeFormModal(); closeDeleteModal(); closeBudgetFormModal();
     }
 });
 
+// ── COMPANY SWITCHER ──────────────────────────────
+async function loadCompanies() {
+    try {
+        const res = await fetch('/api/companies');
+        const companies = await res.json();
+        const sel = document.getElementById('company-switcher');
+        sel.innerHTML = companies.map(c =>
+            `<option value="${c.id}" ${c.id === currentCompany ? 'selected' : ''}>🏢 ${c.name}</option>`
+        ).join('');
+    } catch (e) {
+        console.error('Failed to load companies', e);
+    }
+}
+
+function onCompanyChange() {
+    currentCompany = document.getElementById('company-switcher').value;
+    empFilters = null; // Clear cached filters for previous company
+    loadDashboard();
+    loadEmployees(1);
+}
+// ── BUDGET ─────────────────────────────────────────
+async function loadBudgetAnalysis() {
+    try {
+        const fy = document.getElementById('budget-fiscal-year-filter')?.value || '2026';
+        const res = await fetch(`/api/budgets/analysis?company_id=${currentCompany}&fiscal_year=${fy}`);
+        const data = await res.json();
+
+        // Summary cards
+        document.getElementById('budget-summary-cards').innerHTML = `
+            <div class="metric-card"><div class="metric-label">Total Budget</div><div class="metric-value">${fmt$(data.summary.total_budget)}</div><div class="metric-sub">${data.summary.department_count} departments</div></div>
+            <div class="metric-card"><div class="metric-label">Actual Spend</div><div class="metric-value">${fmt$(data.summary.total_actual_net)}</div><div class="metric-sub">${data.summary.total_active_headcount} active employees</div></div>
+            <div class="metric-card"><div class="metric-label">Variance</div><div class="metric-value" style="color:${data.summary.total_variance >= 0 ? 'var(--success)' : 'var(--danger)'};">${fmt$(data.summary.total_variance)}</div><div class="metric-sub">${data.summary.total_utilization_pct.toFixed(1)}% utilized</div></div>
+            <div class="metric-card"><div class="metric-label">Under</div><div class="metric-value" style="color:var(--success);">${data.summary.pct_under.toFixed(0)}%</div><div class="metric-sub">departments under budget</div></div>
+            <div class="metric-card"><div class="metric-label">On Track</div><div class="metric-value" style="color:var(--info);">${data.summary.pct_on_track.toFixed(0)}%</div><div class="metric-sub">departments on track</div></div>
+            <div class="metric-card"><div class="metric-label">Over/Critical</div><div class="metric-value" style="color:var(--danger);">${data.summary.pct_over.toFixed(0)}% / ${data.summary.pct_critical.toFixed(0)}%</div><div class="metric-sub">departments over budget</div></div>`;
+
+        renderBudgetGauge(data.analysis);
+        renderBudgetTable(data.analysis);
+    } catch (err) {
+        console.error('Failed to load budget analysis', err);
+    }
+}
+
+function renderBudgetGauge(rows) {
+    if (chartBudgetGauge) chartBudgetGauge.destroy();
+    const canvas = document.getElementById('chartBudgetGauge');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const depts = rows.map(r => r.department);
+    const actual = rows.map(r => r.actual_net);
+    const budget = rows.map(r => r.budget_amount || 0);
+
+    chartBudgetGauge = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: depts,
+            datasets: [
+                { label: 'Budget', data: budget, backgroundColor: COLORS_ALPHA[0], borderColor: COLORS[0], borderWidth: 2, borderRadius: 4 },
+                { label: 'Actual Net', data: actual, backgroundColor: COLORS_ALPHA[3], borderColor: COLORS[3], borderWidth: 2, borderRadius: 4 },
+            ],
+        },
+        options: chartDark({
+            plugins: {
+                legend: { labels: { color: '#94a3b8', usePointStyle: true, padding: 16, font: { size: 11 } } },
+                tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt$(ctx.raw)}` } },
+            },
+            scales: {
+                x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+                y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#94a3b8', font: { size: 10 }, callback: v => '$' + (v/1000).toFixed(0) + 'k' } },
+            },
+        }),
+    });
+}
+
+function renderBudgetTable(rows) {
+    const tbody = document.getElementById('budget-detail-table').querySelector('tbody');
+    tbody.innerHTML = rows.map(r => {
+        const statusColor = r.utilization_status === 'critical' ? 'var(--danger)' : r.utilization_status === 'over' ? '#f59e0b' : r.utilization_status === 'on-track' ? 'var(--info)' : 'var(--success)';
+        return `<tr>
+            <td>${r.department}</td><td>${fmt$(r.budget_amount||0)}</td>
+            <td>${fmt$(r.actual_net)}</td>
+            <td style="color:${r.variance >= 0 ? 'var(--success)' : 'var(--danger)'};">${fmt$(r.variance)}</td>
+            <td style="color:${statusColor}; font-weight:600;">${r.utilization_pct.toFixed(1)}%</td>
+            <td>${r.budget_headcount||'-'}/${r.headcount_active||r.headcount_total||0}</td>
+            <td><span class="budget-status badge-${r.utilization_status}">${r.utilization_status}</span></td>
+            <td><button class="btn btn-sm btn-outline" onclick="openBudgetFormModal(${JSON.stringify(r).replace(/"/g,'"')})">✏️</button>
+                <button class="btn btn-sm btn-outline" style="color:var(--danger);" onclick="deleteBudget(${r.budget_id||0})">🗑</button></td>
+        </tr>`;
+    }).join('');
+}
+
+function openBudgetFormModal(budget) {
+    const content = document.getElementById('budget-form-modal-content');
+    const isEdit = budget && budget.budget_id;
+    content.innerHTML = `
+        <button class="modal-close" onclick="closeBudgetFormModal()">✕</button>
+        <h2>${isEdit ? '✏️ Edit Budget' : '＋ Create Budget'}</h2>
+        <form id="budget-form" onsubmit="submitBudgetForm(event, ${!!isEdit})">
+            ${isEdit ? `<input type="hidden" name="budget_id" value="${budget.budget_id}">` : ''}
+            <div class="modal-grid">
+                <div class="modal-field"><label>Department *</label><input name="department" required value="${budget?.department || ''}"></div>
+                <div class="modal-field"><label>Fiscal Year *</label><input name="fiscal_year" required value="${budget?.fiscal_year || '2026'}"></div>
+                <div class="modal-field"><label>Period</label>
+                    <select name="period"><option value="annual" ${budget?.period === 'annual' ? 'selected' : ''}>Annual</option><option value="quarterly" ${budget?.period === 'quarterly' ? 'selected' : ''}>Quarterly</option><option value="monthly" ${budget?.period === 'monthly' ? 'selected' : ''}>Monthly</option></select></div>
+                <div class="modal-field"><label>Quarter</label><input name="quarter" value="${budget?.quarter || ''}" placeholder="Q1-Q4 (quarterly only)"></div>
+                <div class="modal-field"><label>Budget Amount *</label><input name="budget_amount" type="number" step="0.01" required value="${budget?.budget_amount || ''}"></div>
+                <div class="modal-field"><label>Budget Headcount</label><input name="budget_headcount" type="number" value="${budget?.budget_headcount || ''}"></div>
+                <div class="modal-field"><label>Notes</label><input name="notes" value="${budget?.notes || ''}"></div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline" onclick="closeBudgetFormModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">${isEdit ? '💾 Save Changes' : '＋ Create Budget'}</button>
+            </div>
+        </form>`;
+    document.getElementById('budget-form-modal-overlay').classList.add('show');
+}
+
+function closeBudgetFormModal() { document.getElementById('budget-form-modal-overlay').classList.remove('show'); }
+
+async function submitBudgetForm(e, isEdit) {
+    e.preventDefault();
+    const form = document.getElementById('budget-form');
+    const formData = new FormData(form);
+    const data = { company_id: currentCompany };
+    formData.forEach((v, k) => {
+        if (k === 'budget_amount' || k === 'budget_headcount') { const n = parseFloat(v); data[k] = isNaN(n) ? null : n; }
+        else data[k] = v || null;
+    });
+
+    try {
+        const res = await fetch('/api/budgets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (res.ok) {
+            showToast(isEdit ? 'Budget updated!' : 'Budget created!', 'success');
+            closeBudgetFormModal();
+            loadBudgetAnalysis();
+        } else {
+            const err = await res.json();
+            showToast(err.detail || 'Failed to save budget', 'error');
+        }
+    } catch (err) { showToast('Network error', 'error'); }
+}
+
+async function deleteBudget(id) {
+    if (!id || !confirm('Delete this budget entry?')) return;
+    try {
+        const res = await fetch('/api/budgets/' + id, { method: 'DELETE' });
+        if (res.ok) { showToast('Budget deleted', 'success'); loadBudgetAnalysis(); }
+        else { const err = await res.json(); showToast(err.detail || 'Failed to delete', 'error'); }
+    } catch (err) { showToast('Network error', 'error'); }
+}
+
+// ── WHAT-IF ─────────────────────────────────────────
+let scenarioResultData = null;
+
+function addAdjustmentBlock() {
+    const container = document.getElementById('adjustment-list');
+    const idx = container.children.length;
+    const div = document.createElement('div');
+    div.className = 'adjustment-block';
+    div.innerHTML = `
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <div class="modal-field" style="flex:1; min-width:130px;"><label>Target Type</label>
+                <select name="adj_type_${idx}"><option value="department">Department</option><option value="employee">Employee</option><option value="grade">Grade</option><option value="designation">Designation</option><option value="company">Company</option></select></div>
+            <div class="modal-field" style="flex:1; min-width:130px;"><label>Target Value</label>
+                <input name="adj_target_${idx}" placeholder="e.g. Engineering, A, Manager"></div>
+            <div class="modal-field" style="flex:1; min-width:100px;"><label>Field</label>
+                <select name="adj_field_${idx}"><option value="gross_salary">Gross Salary</option><option value="basic_salary">Basic Salary</option><option value="statutory_bonus">Statutory Bonus</option><option value="allowance">Allowance</option></select></div>
+            <div class="modal-field" style="flex:1; min-width:100px;"><label>Adjustment Type</label>
+                <select name="adj_adjustment_${idx}"><option value="percentage">Percentage ±%</option><option value="absolute">Absolute ±$</option><option value="set">Set to $</option></select></div>
+            <div class="modal-field" style="flex:1; min-width:100px;"><label>Value</label>
+                <input name="adj_value_${idx}" type="number" step="0.01" placeholder="e.g. 10 or -5000"></div>
+            <button type="button" class="btn btn-sm btn-outline" style="color:var(--danger); align-self:flex-end; margin-bottom:4px;" onclick="removeAdjustmentBlock(this.parentElement.parentElement)">✕</button>
+        </div>`;
+    container.appendChild(div);
+}
+
+function removeAdjustmentBlock(blockEl) {
+    if (document.getElementById('adjustment-list').children.length > 1) {
+        blockEl.remove();
+    }
+}
+
+function collectAdjustments() {
+    const container = document.getElementById('adjustment-list');
+    const adjustments = [];
+    container.querySelectorAll('.adjustment-block').forEach(block => {
+        const selects = block.querySelectorAll('select');
+        const inputs = block.querySelectorAll('input[type="text"], input[type="number"]');
+        adjustments.push({
+            target_type: selects[0]?.value || 'department',
+            target_value: inputs[0]?.value || '',
+            field: selects[1]?.value || 'gross_salary',
+            adjustment_type: selects[2]?.value || 'percentage',
+            adjustment_value: parseFloat(inputs[1]?.value) || 0,
+        });
+    });
+    return adjustments;
+}
+
+async function runScenario() {
+    const adjustments = collectAdjustments();
+    if (!adjustments.some(a => a.target_value)) { showToast('Please fill at least one adjustment target', 'error'); return; }
+
+    const btn = document.getElementById('btn-run-scenario');
+    btn.disabled = true; btn.textContent = '⏳ Running...';
+
+    try {
+        const res = await fetch('/api/scenarios/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_id: currentCompany, adjustments, save: false }),
+        });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Scenario failed'); }
+        const data = await res.json();
+        // Backend wraps in {"result": {...}}
+        const result = data.result || data;
+        scenarioResultData = result;
+        renderScenarioResults(result);
+    } catch (err) { showToast(err.message, 'error'); }
+    btn.disabled = false; btn.textContent = '▶ Run Scenario';
+}
+
+function renderScenarioResults(data) {
+    const panel = document.getElementById('scenario-results');
+    const b = data.before, a = data.after;
+    if (!b || !a) { panel.innerHTML = '<p style="color:var(--danger);">Invalid scenario result data.</p>'; return; }
+    const variance = (a.total_net_payroll || a.total_net || 0) - (b.total_net_payroll || b.total_net || 0);
+    const totalNetBefore = b.total_net_payroll || b.total_net || 0;
+    const totalNetAfter = a.total_net_payroll || a.total_net || 0;
+    const bracketShifts = data.tax_bracket_shifts || data.bracket_shifts || [];
+
+    panel.innerHTML = `
+        <h3>📊 Scenario Results</h3>
+        <div class="metrics-grid" style="margin-bottom:12px;">
+            <div class="metric-card"><div class="metric-label">Total Net (Before)</div><div class="metric-value">${fmt$(totalNetBefore)}</div><div class="metric-sub">${b.total_employees||0} total employees</div></div>
+            <div class="metric-card"><div class="metric-label">Total Net (After)</div><div class="metric-value">${fmt$(totalNetAfter)}</div><div class="metric-sub">${a.affected_employees||0} affected employees</div></div>
+            <div class="metric-card"><div class="metric-label">Change</div><div class="metric-value" style="color:${variance>=0?'var(--success)':'var(--danger)'};">${variance>=0?'+':''}${fmt$(variance)}</div><div class="metric-sub">${totalNetBefore ? ((variance/totalNetBefore)*100).toFixed(2) : 0}%</div></div>
+            <div class="metric-card"><div class="metric-label">Per Employee Avg</div><div class="metric-value">${fmt$(variance/(a.affected_employees||1))}</div><div class="metric-sub">net change per affected</div></div>
+        </div>
+        ${bracketShifts.length ? `<div class="bracket-alert">🔄 Tax Bracket Shifts: ${bracketShifts.map(s => `${s.from_bracket||'None'}→${s.to_bracket||'None'} (${s.employees_moved||s.count})`).join(', ')}</div>` : ''}
+        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="saveScenario()">💾 Save Scenario</button>
+            <button class="btn btn-outline" onclick="document.getElementById('scenario-results').innerHTML='<p style=\\'color:var(--text-muted);\\'>Run a scenario to see results here.</p>';">✕ Clear</button>
+        </div>`;
+}
+
+async function saveScenario() {
+    if (!scenarioResultData) return;
+    const name = prompt('Scenario name:', 'Scenario ' + new Date().toLocaleString());
+    if (!name) return;
+
+    try {
+        const res = await fetch('/api/scenarios/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ company_id: currentCompany, adjustments: collectAdjustments(), save: true, name }),
+        });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Save failed'); }
+        showToast('Scenario saved!', 'success');
+        loadSavedScenarios();
+    } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function loadSavedScenarios() {
+    try {
+        const res = await fetch(`/api/scenarios?company_id=${currentCompany}`);
+        const scenarios = await res.json();
+        const list = document.getElementById('saved-scenarios-list');
+        if (!scenarios.length) {
+            list.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No saved scenarios yet.</p>';
+            return;
+        }
+        list.innerHTML = '<h4 style="margin-bottom:8px;">📁 Saved Scenarios</h4>' + scenarios.map(s => `
+            <div class="scenario-item" style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); font-size:0.85rem;">
+                <span style="cursor:pointer; flex:1;" onclick="loadScenarioById(${s.id})">📋 <strong>${s.name||'Unnamed'}</strong><br><span style="color:var(--text-muted);">${new Date(s.created_at).toLocaleDateString()}</span></span>
+                <button class="btn btn-sm btn-outline" onclick="rerunScenario(${s.id})" title="Re-run">🔄</button>
+                <button class="btn btn-sm btn-outline" style="color:var(--danger);" onclick="deleteScenario(${s.id})">🗑</button>
+            </div>`).join('');
+    } catch (err) { console.error('Failed to load scenarios', err); }
+}
+
+async function loadScenarioById(id) {
+    try {
+        const res = await fetch('/api/scenarios/' + id);
+        if (!res.ok) { throw new Error('Not found'); }
+        const data = await res.json();
+        // DB stores result_json; API returns it parsed
+        const result = data.result_json || data.result || data;
+        scenarioResultData = result;
+        renderScenarioResults(result);
+    } catch (err) { showToast('Failed to load scenario', 'error'); }
+}
+
+async function deleteScenario(id) {
+    if (!confirm('Delete this scenario?')) return;
+    try {
+        const res = await fetch('/api/scenarios/' + id, { method: 'DELETE' });
+        if (res.ok) { showToast('Scenario deleted', 'success'); loadSavedScenarios(); }
+        else { const err = await res.json(); showToast(err.detail || 'Failed to delete', 'error'); }
+    } catch (err) { showToast('Network error', 'error'); }
+}
+
+async function rerunScenario(id) {
+    try {
+        const res = await fetch('/api/scenarios/' + id + '/rerun', { method: 'POST' });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Re-run failed'); }
+        const data = await res.json();
+        // Backend returns {"result": {...}, "rerun": true}
+        const result = data.result || data;
+        scenarioResultData = result;
+        renderScenarioResults(result);
+        showToast('Scenario re-run complete', 'success');
+    } catch (err) { showToast(err.message, 'error'); }
+}
+
 // ── INIT ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+    loadCompanies();
     loadDashboard();
     loadEmployees(1);
     loadFAQ();
+    loadBudgetAnalysis();
+    loadSavedScenarios();
 });
+
 </script>
 </body>
 </html>

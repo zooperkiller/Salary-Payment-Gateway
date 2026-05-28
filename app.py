@@ -26,7 +26,7 @@ def _get_conn():
 
 
 COLUMNS = [
-    "id", "emp_count", "employee_id", "first_name", "last_name",
+    "id", "emp_count", "employee_id", "company_id", "first_name", "last_name",
     "business_unit_code", "business_unit_name", "continuous_service_date",
     "country_name", "date_of_birth", "age", "age_range", "date_of_joining",
     "experience", "tenure", "date_of_termination", "effective_start_date",
@@ -48,9 +48,14 @@ def _row_to_dict(row) -> Optional[Dict]:
 
 def _build_where(search: str = None, department: str = None, status: str = None,
                  country: str = None, gender: str = None, designation: str = None,
-                 grade: str = None, min_salary: float = None, max_salary: float = None) -> tuple:
+                 grade: str = None, min_salary: float = None, max_salary: float = None,
+                 company_id: str = None) -> tuple:
     clauses = []
     params = []
+
+    if company_id:
+        clauses.append("e.company_id = ?")
+        params.append(company_id)
 
     if search:
         clauses.append("(e.employee_id LIKE ? OR e.first_name LIKE ? OR e.last_name LIKE ? OR e.department LIKE ? OR e.designation LIKE ?)")
@@ -112,10 +117,11 @@ def list_employees(
     max_salary: Optional[float] = Query(None),
     sort_by: Optional[str] = Query("employee_id"),
     sort_dir: Optional[str] = Query("asc"),
+    company_id: Optional[str] = Query(None),
 ):
     """Paginated, filterable employee list."""
     conn = _get_conn()
-    where, params = _build_where(search, department, status, country, gender, designation, grade, min_salary, max_salary)
+    where, params = _build_where(search, department, status, country, gender, designation, grade, min_salary, max_salary, company_id=company_id)
 
     count_sql = f"SELECT COUNT(*) FROM employees e {where}"
     total = conn.execute(count_sql, params).fetchone()[0]
@@ -166,6 +172,7 @@ def analyze_employee(employee_id: str):
 
 class EmployeeCreate(BaseModel):
     employee_id: str
+    company_id: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     department: Optional[str] = None
@@ -256,6 +263,7 @@ def create_employee(emp: EmployeeCreate):
     data = {k: getattr(emp, k, None) for k in fields}
     data["employee_status"] = data.get("employee_status") or "Active"
     data["employee_type"] = data.get("employee_type") or "Permanent"
+    data["company_id"] = data.get("company_id") or "default"
 
     # Auto-compute US progressive tax
     data = _auto_compute_tax(data)
@@ -354,7 +362,7 @@ def _process_csv_upload(content: bytes) -> Dict:
     if not rows:
         return {"imported": 0, "skipped": 0, "errors": ["Empty file"]}
 
-    db_cols = [k for k in COLUMNS if k not in ("id", "emp_count")]
+    db_cols = [k for k in COLUMNS if k not in ("id", "emp_count", "company_id")]
     csv_cols = list(rows[0].keys())
     # Map CSV columns to DB columns (case-insensitive)
     col_map = {}
@@ -424,7 +432,7 @@ def _process_xlsx_upload(content: bytes) -> Dict:
 
     # Read header row
     headers = [str(c.value).strip() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
-    db_cols = [k for k in COLUMNS if k not in ("id", "emp_count")]
+    db_cols = [k for k in COLUMNS if k not in ("id", "emp_count", "company_id")]
 
     # Map headers to DB columns
     col_map = {}

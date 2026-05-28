@@ -15,6 +15,7 @@ def init_db(db_path=DB_PATH):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             emp_count INTEGER,
             employee_id TEXT UNIQUE,
+            company_id TEXT DEFAULT 'default',
             first_name TEXT,
             last_name TEXT,
             business_unit_code TEXT,
@@ -69,6 +70,7 @@ def init_db(db_path=DB_PATH):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_country ON employees(country)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_designation ON employees(designation)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_grade ON employees(grade)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_company ON employees(company_id)")
     conn.commit()
     return conn
 

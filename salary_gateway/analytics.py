@@ -302,3 +302,166 @@ def build_full_dashboard(rows: List[Dict]) -> Dict:
         "designation_distribution": designation_distribution(rows),
         "top_earners": top_earners(rows),
     }
+
+
+# ── Budget vs Actual ──────────────────────────────────────────
+
+def budget_vs_actual(employees: List[Dict], budgets: List[Dict]) -> List[Dict]:
+    """Compare actual department payrolls against budgeted amounts.
+
+    For each budget row, compute actual aggregates from the employee list
+    and derive variance, utilization percentage, and a status label.
+    """
+    # 1. Aggregate employees by department
+    dept_actuals: Dict[str, dict] = {}
+    for emp in employees:
+        dept = (emp.get("department") or "Unknown").strip()
+        if dept not in dept_actuals:
+            dept_actuals[dept] = {
+                "headcount": 0,
+                "active": 0,
+                "gross": 0.0,
+                "net": 0.0,
+                "tax": 0.0,
+                "basic": 0.0,
+                "net_vals": [],
+            }
+        da = dept_actuals[dept]
+        da["headcount"] += 1
+        if (emp.get("employee_status") or "").strip().lower() == "active":
+            da["active"] += 1
+        gs = emp.get("gross_salary")
+        if gs is not None:
+            da["gross"] += float(gs)
+        ns = emp.get("net_salary")
+        if ns is not None:
+            da["net"] += float(ns)
+            da["net_vals"].append(float(ns))
+        ts = emp.get("tax_spend")
+        if ts is not None:
+            da["tax"] += float(ts)
+        bs = emp.get("basic_salary")
+        if bs is not None:
+            da["basic"] += float(bs)
+
+    # 2. Merge budget rows with actuals
+    result: List[Dict] = []
+    for b in budgets:
+        dept = (b.get("department") or "").strip()
+        actual = dept_actuals.get(dept, {
+            "headcount": 0, "active": 0, "gross": 0.0,
+            "net": 0.0, "tax": 0.0, "basic": 0.0, "net_vals": [],
+        })
+
+        budget_net = float(b.get("budget_net") or 0)
+        budget_gross = float(b.get("budget_gross") or 0)
+        budget_headcount = int(b.get("budget_headcount") or 0)
+        budget_tax = float(b.get("budget_tax") or 0)
+
+        actual_net = actual["net"]
+        actual_gross = actual["gross"]
+        actual_headcount = actual["headcount"]
+        actual_tax = actual["tax"]
+
+        variance_net = actual_net - budget_net
+        variance_gross = actual_gross - budget_gross
+        variance_headcount = actual_headcount - budget_headcount
+
+        utilization_pct = round((actual_net / budget_net) * 100, 1) if budget_net > 0 else None
+        headcount_util_pct = round((actual_headcount / budget_headcount) * 100, 1) if budget_headcount > 0 else None
+
+        # Status thresholds
+        if utilization_pct is None:
+            status = "under" if actual_net > 0 else "under"
+        elif utilization_pct < 80:
+            status = "under"
+        elif utilization_pct < 95:
+            status = "on-track"
+        elif utilization_pct < 110:
+            status = "over"
+        else:
+            status = "critical"
+
+        result.append({
+            "budget_id": b.get("id"),
+            "department": dept,
+            "fiscal_year": b.get("fiscal_year"),
+            "period": b.get("period"),
+            "quarter": b.get("quarter"),
+            "budget_net": budget_net,
+            "budget_gross": budget_gross,
+            "budget_headcount": budget_headcount,
+            "budget_tax": budget_tax,
+            "budget_basic": float(b.get("budget_basic") or 0),
+            "notes": b.get("notes"),
+            "actual_net": round(actual_net, 2),
+            "actual_gross": round(actual_gross, 2),
+            "actual_headcount": actual_headcount,
+            "actual_tax": round(actual_tax, 2),
+            "actual_active": actual["active"],
+            "actual_basic": round(actual["basic"], 2),
+            "avg_net_salary": round(actual_net / len(actual["net_vals"]), 2) if actual["net_vals"] else 0,
+            "variance_net": round(variance_net, 2),
+            "variance_gross": round(variance_gross, 2),
+            "variance_headcount": variance_headcount,
+            "utilization_pct": utilization_pct,
+            "headcount_utilization_pct": headcount_util_pct,
+            "status": status,
+        })
+
+    return result
+
+
+def budget_summary(rows: List[Dict]) -> Dict:
+    """Roll up all budget-vs-actual rows into a company-wide summary."""
+    total_budget_net = 0.0
+    total_budget_gross = 0.0
+    total_actual_net = 0.0
+    total_actual_gross = 0.0
+    total_budget_headcount = 0
+    total_actual_headcount = 0
+
+    dept_over = 0
+    dept_under = 0
+    dept_on_track = 0
+    dept_critical = 0
+
+    for r in rows:
+        total_budget_net += r.get("budget_net", 0) or 0
+        total_budget_gross += r.get("budget_gross", 0) or 0
+        total_actual_net += r.get("actual_net", 0) or 0
+        total_actual_gross += r.get("actual_gross", 0) or 0
+        total_budget_headcount += r.get("budget_headcount", 0) or 0
+        total_actual_headcount += r.get("actual_headcount", 0) or 0
+
+        status = r.get("status", "")
+        if status == "over":
+            dept_over += 1
+        elif status == "under":
+            dept_under += 1
+        elif status == "on-track":
+            dept_on_track += 1
+        elif status == "critical":
+            dept_critical += 1
+
+    overall_variance_net = total_actual_net - total_budget_net
+    overall_variance_pct = (
+        round((overall_variance_net / total_budget_net) * 100, 2)
+        if total_budget_net > 0
+        else None
+    )
+
+    return {
+        "total_budget_net": round(total_budget_net, 2),
+        "total_budget_gross": round(total_budget_gross, 2),
+        "total_actual_net": round(total_actual_net, 2),
+        "total_actual_gross": round(total_actual_gross, 2),
+        "total_budget_headcount": total_budget_headcount,
+        "total_actual_headcount": total_actual_headcount,
+        "overall_variance_pct": overall_variance_pct,
+        "overall_variance_net": round(overall_variance_net, 2),
+        "dept_over_count": dept_over,
+        "dept_under_count": dept_under,
+        "dept_on_track_count": dept_on_track,
+        "dept_critical_count": dept_critical,
+    }

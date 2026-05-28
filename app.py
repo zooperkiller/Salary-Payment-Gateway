@@ -10,11 +10,93 @@ import json
 from pathlib import Path
 from salary_gateway.analytics import *
 from salary_gateway.calculator import compute_progressive_tax, compute_net_salary
+from salary_gateway.scenarios import apply_scenario
 
 app = FastAPI(title="Salary Payment Gateway — Payroll Intelligence Dashboard")
 templates = Jinja2Templates(directory="templates")
 
 DB_PATH = Path("employees.db")
+
+
+# ── Startup migration ────────────────────────────────────────────
+
+@app.on_event("startup")
+def _run_startup_migrations():
+    """Apply any pending schema migrations on startup (idempotent)."""
+    conn = sqlite3.connect(str(DB_PATH))
+    cur = conn.cursor()
+
+    # 1. Add company_id to employees if missing
+    try:
+        cur.execute("ALTER TABLE employees ADD COLUMN company_id TEXT DEFAULT 'default'")
+    except sqlite3.OperationalError:
+        pass  # column already exists
+
+    cur.execute("UPDATE employees SET company_id = 'default' WHERE company_id IS NULL")
+
+    # 2. companies table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS companies (
+            id TEXT PRIMARY KEY, name TEXT NOT NULL,
+            fiscal_year_start TEXT DEFAULT '01-01', currency TEXT DEFAULT 'USD',
+            tax_country TEXT DEFAULT 'US', is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    cur.execute("INSERT OR IGNORE INTO companies (id, name, currency, tax_country) VALUES ('default', 'Default Company', 'USD', 'US')")
+
+    # 3. budgets table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS budgets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id TEXT NOT NULL DEFAULT 'default',
+            department TEXT NOT NULL, fiscal_year INTEGER NOT NULL,
+            period TEXT DEFAULT 'annual', quarter INTEGER,
+            budget_gross REAL DEFAULT 0, budget_net REAL DEFAULT 0,
+            budget_tax REAL DEFAULT 0, budget_headcount INTEGER DEFAULT 0,
+            budget_basic REAL DEFAULT 0, notes TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(company_id, department, fiscal_year, period, quarter)
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_budgets_company_dept_year ON budgets(company_id, department, fiscal_year)")
+
+    # 4. scenarios table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS scenarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id TEXT NOT NULL DEFAULT 'default',
+            name TEXT NOT NULL, adjustments_json TEXT NOT NULL,
+            result_json TEXT, created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_scenarios_company ON scenarios(company_id)")
+
+    # 5. monthly_snapshots table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS monthly_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id TEXT NOT NULL DEFAULT 'default',
+            snapshot_date TEXT NOT NULL,
+            total_employees INTEGER, active_count INTEGER,
+            total_net_payroll REAL, total_gross_payroll REAL,
+            total_tax REAL, avg_net_salary REAL,
+            avg_gross_salary REAL, departments_json TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(company_id, snapshot_date)
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_snapshots_company_date ON monthly_snapshots(company_id, snapshot_date)")
+
+    # 6. company_id index on employees
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_employees_company ON employees(company_id)")
+
+    conn.commit()
+    conn.close()
+    print("✅ Startup migrations applied successfully")
+
 
 # ── DB helpers ──────────────────────────────────────────────────
 
@@ -26,7 +108,7 @@ def _get_conn():
 
 
 COLUMNS = [
-    "id", "emp_count", "employee_id", "first_name", "last_name",
+    "id", "emp_count", "employee_id", "company_id", "first_name", "last_name",
     "business_unit_code", "business_unit_name", "continuous_service_date",
     "country_name", "date_of_birth", "age", "age_range", "date_of_joining",
     "experience", "tenure", "date_of_termination", "effective_start_date",
@@ -48,9 +130,14 @@ def _row_to_dict(row) -> Optional[Dict]:
 
 def _build_where(search: str = None, department: str = None, status: str = None,
                  country: str = None, gender: str = None, designation: str = None,
-                 grade: str = None, min_salary: float = None, max_salary: float = None) -> tuple:
+                 grade: str = None, min_salary: float = None, max_salary: float = None,
+                 company_id: str = None) -> tuple:
     clauses = []
     params = []
+
+    if company_id:
+        clauses.append("e.company_id = ?")
+        params.append(company_id)
 
     if search:
         clauses.append("(e.employee_id LIKE ? OR e.first_name LIKE ? OR e.last_name LIKE ? OR e.department LIKE ? OR e.designation LIKE ?)")
@@ -112,10 +199,11 @@ def list_employees(
     max_salary: Optional[float] = Query(None),
     sort_by: Optional[str] = Query("employee_id"),
     sort_dir: Optional[str] = Query("asc"),
+    company_id: Optional[str] = Query(None),
 ):
     """Paginated, filterable employee list."""
     conn = _get_conn()
-    where, params = _build_where(search, department, status, country, gender, designation, grade, min_salary, max_salary)
+    where, params = _build_where(search, department, status, country, gender, designation, grade, min_salary, max_salary, company_id=company_id)
 
     count_sql = f"SELECT COUNT(*) FROM employees e {where}"
     total = conn.execute(count_sql, params).fetchone()[0]
@@ -166,6 +254,7 @@ def analyze_employee(employee_id: str):
 
 class EmployeeCreate(BaseModel):
     employee_id: str
+    company_id: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     department: Optional[str] = None
@@ -256,6 +345,7 @@ def create_employee(emp: EmployeeCreate):
     data = {k: getattr(emp, k, None) for k in fields}
     data["employee_status"] = data.get("employee_status") or "Active"
     data["employee_type"] = data.get("employee_type") or "Permanent"
+    data["company_id"] = data.get("company_id") or "default"
 
     # Auto-compute US progressive tax
     data = _auto_compute_tax(data)
@@ -354,7 +444,7 @@ def _process_csv_upload(content: bytes) -> Dict:
     if not rows:
         return {"imported": 0, "skipped": 0, "errors": ["Empty file"]}
 
-    db_cols = [k for k in COLUMNS if k not in ("id", "emp_count")]
+    db_cols = [k for k in COLUMNS if k not in ("id", "emp_count", "company_id")]
     csv_cols = list(rows[0].keys())
     # Map CSV columns to DB columns (case-insensitive)
     col_map = {}
@@ -424,7 +514,7 @@ def _process_xlsx_upload(content: bytes) -> Dict:
 
     # Read header row
     headers = [str(c.value).strip() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
-    db_cols = [k for k in COLUMNS if k not in ("id", "emp_count")]
+    db_cols = [k for k in COLUMNS if k not in ("id", "emp_count", "company_id")]
 
     # Map headers to DB columns
     col_map = {}
@@ -635,13 +725,15 @@ def recalculate_all_taxes(
 
 
 @app.get("/api/filters")
-def get_filter_values():
-    """Return all distinct filter values for dropdowns."""
+def get_filter_values(company_id: Optional[str] = Query("default")):
+    """Return all distinct filter values for dropdowns, scoped to company."""
     conn = _get_conn()
     filters = {}
+    where = "AND company_id = ?" if company_id else ""
+    params = [company_id] if company_id else []
     for col in ["department", "country", "gender", "designation", "grade",
                 "employee_status", "employee_type", "continent"]:
-        rows = conn.execute(f"SELECT DISTINCT {col} FROM employees WHERE {col} IS NOT NULL AND {col} != '' ORDER BY {col}").fetchall()
+        rows = conn.execute(f"SELECT DISTINCT {col} FROM employees WHERE {col} IS NOT NULL AND {col} != '' {where} ORDER BY {col}", params).fetchall()
         filters[col] = [r[0] for r in rows]
     conn.close()
     return filters
@@ -651,20 +743,22 @@ def get_filter_values():
 
 
 @app.get("/api/dashboard")
-def dashboard():
-    """Full dashboard analytics payload."""
+def dashboard(company_id: Optional[str] = Query("default")):
+    """Full dashboard analytics payload, scoped to company."""
     conn = _get_conn()
-    rows = conn.execute("SELECT * FROM employees").fetchall()
+    where, params = ("WHERE company_id = ?", [company_id]) if company_id else ("", [])
+    rows = conn.execute(f"SELECT * FROM employees {where}", params).fetchall()
     conn.close()
     employees = [_row_to_dict(r) for r in rows]
     return build_full_dashboard(employees)
 
 
 @app.get("/api/dashboard/summary")
-def dashboard_summary():
-    """Quick summary stats."""
+def dashboard_summary(company_id: Optional[str] = Query("default")):
+    """Quick summary stats, scoped to company."""
     conn = _get_conn()
-    rows = conn.execute("SELECT * FROM employees").fetchall()
+    where, params = ("WHERE company_id = ?", [company_id]) if company_id else ("", [])
+    rows = conn.execute(f"SELECT * FROM employees {where}", params).fetchall()
     conn.close()
     emps = [_row_to_dict(r) for r in rows]
     total = len(emps)
@@ -694,17 +788,23 @@ def dashboard_summary():
 
 
 @app.get("/api/departments")
-def list_departments():
+def list_departments(company_id: Optional[str] = Query("default")):
     conn = _get_conn()
-    rows = conn.execute("SELECT DISTINCT department FROM employees WHERE department IS NOT NULL AND department != '' ORDER BY department").fetchall()
+    rows = conn.execute(
+        "SELECT DISTINCT department FROM employees WHERE department IS NOT NULL AND department != '' AND company_id = ? ORDER BY department",
+        (company_id,)
+    ).fetchall()
     conn.close()
     return [r[0] for r in rows]
 
 
 @app.get("/api/departments/{dept_name}")
-def department_detail(dept_name: str):
+def department_detail(dept_name: str, company_id: Optional[str] = Query("default")):
     conn = _get_conn()
-    rows = conn.execute("SELECT * FROM employees WHERE department = ?", (dept_name,)).fetchall()
+    rows = conn.execute(
+        "SELECT * FROM employees WHERE department = ? AND company_id = ?",
+        (dept_name, company_id)
+    ).fetchall()
     conn.close()
     emps = [_row_to_dict(r) for r in rows]
     if not emps:
@@ -712,13 +812,383 @@ def department_detail(dept_name: str):
     return department_kpis(emps)[0] if department_kpis(emps) else {}
 
 
+# ── Companies CRUD ─────────────────────────────────────────────
+
+
+class CompanyCreate(BaseModel):
+    id: str
+    name: str
+    fiscal_year_start: Optional[str] = "01-01"
+    currency: Optional[str] = "USD"
+    tax_country: Optional[str] = "US"
+    is_active: Optional[int] = 1
+
+
+# ── Budget models ──────────────────────────────────────────────
+
+class BudgetCreate(BaseModel):
+    company_id: Optional[str] = "default"
+    department: str
+    fiscal_year: int
+    period: Optional[str] = "annual"  # "annual" or "quarterly"
+    quarter: Optional[int] = None
+    budget_gross: Optional[float] = 0.0
+    budget_net: Optional[float] = 0.0
+    budget_tax: Optional[float] = 0.0
+    budget_headcount: Optional[int] = 0
+    budget_basic: Optional[float] = 0.0
+    notes: Optional[str] = None
+
+
+# ── Scenario models ────────────────────────────────────────────
+
+class AdjustmentItem(BaseModel):
+    target_type: str  # department | employee | grade | designation | company
+    target_value: Optional[str] = ""
+    field: str  # gross_salary | basic_salary | statutory_bonus | allowance
+    adjustment_type: str  # percentage | absolute | set
+    adjustment_value: float
+
+
+class ScenarioRunRequest(BaseModel):
+    company_id: Optional[str] = "default"
+    name: Optional[str] = None
+    adjustments: List[AdjustmentItem]
+    save: Optional[bool] = False
+
+
+@app.get("/api/companies")
+def list_companies():
+    """Return all companies ordered by name."""
+    conn = _get_conn()
+    rows = conn.execute("SELECT * FROM companies ORDER BY name").fetchall()
+    conn.close()
+    return [_row_to_dict(r) for r in rows]
+
+
+@app.post("/api/companies", status_code=201)
+def create_company(company: CompanyCreate):
+    """Create a new company."""
+    conn = _get_conn()
+    try:
+        conn.execute(
+            "INSERT INTO companies (id, name, fiscal_year_start, currency, tax_country, is_active) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (company.id, company.name, company.fiscal_year_start,
+             company.currency, company.tax_country, company.is_active),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM companies WHERE id = ?", (company.id,)).fetchone()
+        conn.close()
+        return _row_to_dict(row)
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(status_code=409, detail=f"Company '{company.id}' already exists")
+
+
+@app.put("/api/companies/{company_id}")
+def update_company(company_id: str, company: CompanyCreate):
+    """Update an existing company's name, currency, tax country, or active status."""
+    conn = _get_conn()
+    existing = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Company not found")
+    conn.execute(
+        "UPDATE companies SET name = ?, fiscal_year_start = ?, currency = ?, "
+        "tax_country = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?",
+        (company.name, company.fiscal_year_start, company.currency,
+         company.tax_country, company.is_active, company_id),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+    conn.close()
+    return _row_to_dict(row)
+
+
+@app.delete("/api/companies/{company_id}")
+def delete_company(company_id: str):
+    """Delete a company (cannot delete 'default')."""
+    if company_id == "default":
+        raise HTTPException(status_code=400, detail="Cannot delete the default company")
+    conn = _get_conn()
+    existing = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Company not found")
+    conn.execute("DELETE FROM companies WHERE id = ?", (company_id,))
+    conn.commit()
+    conn.close()
+    return {"deleted": company_id}
+
+
+# ── Budgets CRUD ──────────────────────────────────────────────
+
+
+@app.post("/api/budgets", status_code=201)
+def create_budget(budget: BudgetCreate):
+    """Create or upsert a budget (INSERT OR REPLACE on unique constraint)."""
+    period = (budget.period or "annual").strip().lower()
+    if period not in ("annual", "quarterly"):
+        raise HTTPException(status_code=422, detail="period must be 'annual' or 'quarterly'")
+    if period == "quarterly" and (budget.quarter is None or budget.quarter < 1 or budget.quarter > 4):
+        raise HTTPException(status_code=422, detail="quarter must be 1-4 for quarterly budgets")
+    if period == "annual":
+        budget.quarter = None
+
+    conn = _get_conn()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO budgets
+            (company_id, department, fiscal_year, period, quarter,
+             budget_gross, budget_net, budget_tax, budget_headcount, budget_basic, notes,
+             created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        """,
+        (
+            budget.company_id, budget.department, budget.fiscal_year, period, budget.quarter,
+            budget.budget_gross, budget.budget_net, budget.budget_tax, budget.budget_headcount,
+            budget.budget_basic, budget.notes,
+        ),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT * FROM budgets WHERE company_id=? AND department=? AND fiscal_year=? AND period=?",
+        (budget.company_id, budget.department, budget.fiscal_year, period),
+    ).fetchone()
+    conn.close()
+    return _row_to_dict(row)
+
+
+@app.get("/api/budgets")
+def list_budgets(
+    company_id: Optional[str] = Query("default"),
+    fiscal_year: Optional[int] = None,
+    department: Optional[str] = None,
+    period: Optional[str] = None,
+):
+    """List budgets with optional filters."""
+    conn = _get_conn()
+    query = "SELECT * FROM budgets WHERE company_id = ?"
+    params: list = [company_id]
+
+    if fiscal_year is not None:
+        query += " AND fiscal_year = ?"
+        params.append(fiscal_year)
+    if department:
+        query += " AND department LIKE ?"
+        params.append(f"%{department}%")
+    if period:
+        query += " AND period = ?"
+        params.append(period)
+
+    query += " ORDER BY department, fiscal_year"
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return [_row_to_dict(r) for r in rows]
+
+
+@app.delete("/api/budgets/{budget_id}")
+def delete_budget(budget_id: int):
+    """Delete a budget by its integer id."""
+    conn = _get_conn()
+    existing = conn.execute("SELECT * FROM budgets WHERE id = ?", (budget_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Budget not found")
+    conn.execute("DELETE FROM budgets WHERE id = ?", (budget_id,))
+    conn.commit()
+    conn.close()
+    return {"deleted": budget_id}
+
+
+@app.get("/api/budgets/analysis")
+def budget_analysis(
+    company_id: Optional[str] = Query("default"),
+    fiscal_year: Optional[int] = None,
+):
+    """Full budget-vs-actual analysis: per-department rows + summary roll-up."""
+    conn = _get_conn()
+
+    b_query = "SELECT * FROM budgets WHERE company_id = ?"
+    b_params: list = [company_id]
+    if fiscal_year is not None:
+        b_query += " AND fiscal_year = ?"
+        b_params.append(fiscal_year)
+    b_query += " ORDER BY department"
+    budget_rows = conn.execute(b_query, b_params).fetchall()
+    budgets = [_row_to_dict(r) for r in budget_rows]
+
+    emp_rows = conn.execute("SELECT * FROM employees WHERE company_id = ?", (company_id,)).fetchall()
+    employees = [_row_to_dict(r) for r in emp_rows]
+    conn.close()
+
+    if not budgets:
+        return {
+            "rows": [],
+            "summary": None,
+            "fiscal_year": fiscal_year,
+            "hint": "No budgets configured. POST to /api/budgets to create one.",
+        }
+
+    rows = budget_vs_actual(employees, budgets)
+    summary = budget_summary(rows)
+
+    return {
+        "rows": rows,
+        "summary": summary,
+        "fiscal_year": fiscal_year,
+    }
+
+
+# ── Scenarios ─────────────────────────────────────────────────
+
+
+@app.post("/api/scenarios/run")
+def run_scenario(req: ScenarioRunRequest):
+    """Execute a what-if scenario with the given adjustments."""
+    if not req.adjustments:
+        raise HTTPException(status_code=422, detail="At least one adjustment is required")
+
+    VALID_TARGETS = {"department", "employee", "grade", "designation", "company"}
+    VALID_FIELDS = {"gross_salary", "basic_salary", "statutory_bonus", "allowance"}
+    VALID_ADJ_TYPES = {"percentage", "absolute", "set"}
+
+    for i, adj in enumerate(req.adjustments):
+        if adj.target_type not in VALID_TARGETS:
+            raise HTTPException(status_code=422, detail=f"Adjustment {i}: invalid target_type '{adj.target_type}'")
+        if adj.field not in VALID_FIELDS:
+            raise HTTPException(status_code=422, detail=f"Adjustment {i}: invalid field '{adj.field}'")
+        if adj.adjustment_type not in VALID_ADJ_TYPES:
+            raise HTTPException(status_code=422, detail=f"Adjustment {i}: invalid adjustment_type '{adj.adjustment_type}'")
+
+    conn = _get_conn()
+    emp_rows = conn.execute("SELECT * FROM employees WHERE company_id = ?", (req.company_id,)).fetchall()
+    employees = [_row_to_dict(r) for r in emp_rows]
+
+    adjustments_dicts = [adj.dict() for adj in req.adjustments]
+    result = apply_scenario(employees, adjustments_dicts)
+
+    saved_id = None
+    if req.save:
+        name = req.name or f"Scenario {len(adjustments_dicts)} adjustment(s)"
+        conn.execute(
+            """
+            INSERT INTO scenarios (company_id, name, adjustments_json, result_json, created_at)
+            VALUES (?, ?, ?, ?, datetime('now'))
+            """,
+            (req.company_id, name, json.dumps(adjustments_dicts), json.dumps(result)),
+        )
+        conn.commit()
+        saved_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+    conn.close()
+
+    response = {"result": result}
+    if saved_id is not None:
+        response["saved_id"] = saved_id
+    return response
+
+
+@app.get("/api/scenarios")
+def list_scenarios(company_id: Optional[str] = Query("default")):
+    """List saved scenarios for a company."""
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT * FROM scenarios WHERE company_id = ? ORDER BY created_at DESC",
+        (company_id,),
+    ).fetchall()
+    conn.close()
+    scenarios = []
+    for r in rows:
+        d = _row_to_dict(r)
+        try:
+            d["adjustments_json"] = json.loads(d.get("adjustments_json") or "[]")
+        except (json.JSONDecodeError, TypeError):
+            d["adjustments_json"] = []
+        try:
+            d["result_json"] = json.loads(d.get("result_json") or "{}")
+        except (json.JSONDecodeError, TypeError):
+            d["result_json"] = {}
+        scenarios.append(d)
+    return scenarios
+
+
+@app.get("/api/scenarios/{scenario_id}")
+def get_scenario(scenario_id: int):
+    """Get a single saved scenario with parsed JSON."""
+    conn = _get_conn()
+    row = conn.execute("SELECT * FROM scenarios WHERE id = ?", (scenario_id,)).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    d = _row_to_dict(row)
+    try:
+        d["adjustments_json"] = json.loads(d.get("adjustments_json") or "[]")
+    except (json.JSONDecodeError, TypeError):
+        d["adjustments_json"] = []
+    try:
+        d["result_json"] = json.loads(d.get("result_json") or "{}")
+    except (json.JSONDecodeError, TypeError):
+        d["result_json"] = {}
+    return d
+
+
+@app.delete("/api/scenarios/{scenario_id}")
+def delete_scenario(scenario_id: int):
+    """Delete a saved scenario."""
+    conn = _get_conn()
+    existing = conn.execute("SELECT * FROM scenarios WHERE id = ?", (scenario_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    conn.execute("DELETE FROM scenarios WHERE id = ?", (scenario_id,))
+    conn.commit()
+    conn.close()
+    return {"deleted": scenario_id}
+
+
+@app.post("/api/scenarios/{scenario_id}/rerun")
+def rerun_scenario(scenario_id: int, save: Optional[bool] = Query(False)):
+    """Re-run a saved scenario's adjustments against current employee data."""
+    conn = _get_conn()
+    row = conn.execute("SELECT * FROM scenarios WHERE id = ?", (scenario_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Scenario not found")
+
+    d = _row_to_dict(row)
+    try:
+        adjustments_dicts = json.loads(d.get("adjustments_json") or "[]")
+    except (json.JSONDecodeError, TypeError):
+        conn.close()
+        raise HTTPException(status_code=400, detail="Scenario has invalid adjustments JSON")
+
+    company_id = d.get("company_id", "default")
+
+    emp_rows = conn.execute("SELECT * FROM employees WHERE company_id = ?", (company_id,)).fetchall()
+    employees = [_row_to_dict(r) for r in emp_rows]
+
+    result = apply_scenario(employees, adjustments_dicts)
+
+    if save:
+        conn.execute(
+            "UPDATE scenarios SET result_json = ?, updated_at = datetime('now') WHERE id = ?",
+            (json.dumps(result), scenario_id),
+        )
+        conn.commit()
+
+    conn.close()
+    return {"result": result, "rerun": True}
+
+
 # ── Home Page ──────────────────────────────────────────────────
 
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, employee_id: Optional[str] = None):
+def home(request: Request, employee_id: Optional[str] = None, company_id: Optional[str] = Query("default")):
     conn = _get_conn()
-    rows = conn.execute("SELECT * FROM employees").fetchall()
+    rows = conn.execute("SELECT * FROM employees WHERE company_id = ?", (company_id,)).fetchall()
     conn.close()
     employees = [_row_to_dict(r) for r in rows]
 

@@ -7,5 +7,8 @@ services:
     volumes:
       - ./employees.db:/app/employees.db
       - ./Payroll Data.xlsx:/app/Payroll Data.xlsx:ro
+      - ./templates:/app/templates:ro
+      - ./salary_gateway:/app/salary_gateway:ro
+      - ./app.py:/app/app.py:ro
     working_dir: /app
-    command: uvicorn app:app --host 0.0.0.0 --port 8000
+    command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
